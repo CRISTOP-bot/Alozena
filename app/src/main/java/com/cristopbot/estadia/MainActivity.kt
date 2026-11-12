@@ -47,7 +47,8 @@ private fun EstadiaApp() {
     var selectedTab by remember { mutableIntStateOf(0) }
     var selectedStay by remember { mutableStateOf<Stay?>(null) }
     val categories = listOf("Todo", "Frente al mar", "Cabañas", "Casas", "Albercas", "Ciudades")
-    val results = StayFilters.filter(StayCatalog.stays, query, category, selectedTab == 1, favorites)
+    val isFavoritesPage = selectedTab == 1
+    val results = StayFilters.filter(StayCatalog.stays, query, category, isFavoritesPage, favorites)
 
     Scaffold(
         containerColor = Color.White,
@@ -82,10 +83,10 @@ private fun EstadiaApp() {
                     if (results.isEmpty()) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(if (favoritesOnly) Icons.Default.FavoriteBorder else Icons.Default.Search, null, tint = Muted, modifier = Modifier.size(42.dp))
+                                Icon(if (isFavoritesPage) Icons.Default.FavoriteBorder else Icons.Default.Search, null, tint = Muted, modifier = Modifier.size(42.dp))
                                 Spacer(Modifier.height(12.dp))
-                                Text(if (favoritesOnly) "Aún no tienes favoritos" else "No encontramos alojamientos", fontWeight = FontWeight.SemiBold, color = Ink)
-                                Text(if (favoritesOnly) "Toca el corazón de un alojamiento para guardarlo." else "Prueba otra ciudad o categoría.", color = Muted, fontSize = 13.sp)
+                                Text(if (isFavoritesPage) "Aún no tienes favoritos" else "No encontramos alojamientos", fontWeight = FontWeight.SemiBold, color = Ink)
+                                Text(if (isFavoritesPage) "Toca el corazón de un alojamiento para guardarlo." else "Prueba otra ciudad o categoría.", color = Muted, fontSize = 13.sp)
                             }
                         }
                     } else {
