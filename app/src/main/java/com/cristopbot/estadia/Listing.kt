@@ -1,5 +1,8 @@
 package com.cristopbot.estadia
 
+import java.text.Normalizer
+import java.util.Locale
+
 data class Stay(
     val id: Int,
     val title: String,
@@ -26,8 +29,12 @@ object StayCatalog {
 }
 
 object StayFilters {
+    fun normalize(value: String): String = Normalizer.normalize(value.trim().lowercase(Locale.ROOT), Normalizer.Form.NFD)
+        .replace(Regex("\\p{Mn}+"), "")
+
     fun filter(stays: List<Stay>, query: String, category: String, favoritesOnly: Boolean, favorites: Set<Int>): List<Stay> = stays.filter { stay ->
-        val matchesQuery = query.isBlank() || stay.location.contains(query.trim(), ignoreCase = true) || stay.title.contains(query.trim(), ignoreCase = true)
+        val normalizedQuery = normalize(query)
+        val matchesQuery = normalizedQuery.isBlank() || normalize(stay.location).contains(normalizedQuery) || normalize(stay.title).contains(normalizedQuery)
         val matchesCategory = category == "Todo" || stay.category == category
         matchesQuery && matchesCategory && (!favoritesOnly || stay.id in favorites)
     }
