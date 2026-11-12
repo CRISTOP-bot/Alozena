@@ -1,0 +1,57 @@
+name: Android CI and APK release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Run unit tests
+        run: gradle testDebugUnitTest --no-daemon
+      - name: Build debug APK
+        run: gradle assembleDebug --no-daemon
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: estadia-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+      - name: Publish main build as prerelease
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.${{ github.run_number }}
+          name: Estadía v0.1.${{ github.run_number }}
+          prerelease: true
+          generate_release_notes: true
+          files: app/build/outputs/apk/debug/app-debug.apk
+      - name: Publish tagged stable release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: app/build/outputs/apk/debug/app-debug.apk
