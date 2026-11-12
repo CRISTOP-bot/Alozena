@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="260" viewBox="0 0 900 260" role="img" aria-labelledby="t d">
+<title id="t">Estadía — Patio</title><desc id="d">Símbolo geométrico de patio visto desde arriba: arquitectura, sombra y un pequeño jardín al centro.</desc>
+<rect width="900" height="260" fill="#F4F1E8"/>
+<g transform="translate(28 26)">
+<path d="M24 20h142v142H24z" fill="#294A43"/>
+<path d="M42 38h106v106H42z" fill="#F4F1E8"/>
+<path d="M42 38h106v20H42z" fill="#D57A5E"/>
+<path d="M42 58h20v86H42z" fill="#D57A5E"/>
+<path d="M128 58h20v86h-20z" fill="#CFD8C7"/>
+<path d="M62 58h66v66H62z" fill="#E6B86E"/>
+<path d="M95 71c-20 9-22 29-2 43 17-7 25-21 17-34-5-8-10-10-15-9Z" fill="#547B61"/>
+<path d="M95 76v40" stroke="#F4F1E8" stroke-width="2.5" stroke-linecap="round"/>
+<path d="M24 174h142" stroke="#294A43" stroke-width="3"/>
+<circle cx="167" cy="20" r="6" fill="#D57A5E"/>
+</g>
+<text x="270" y="144" fill="#294A43" font-family="Georgia, 'Times New Roman', serif" font-size="83" font-weight="400" letter-spacing="-3">Estadía</text>
+<path d="M276 173h46" stroke="#D57A5E" stroke-width="3"/>
+<text x="336" y="181" fill="#6D786A" font-family="Arial, sans-serif" font-size="16" letter-spacing="4">UN RESPIRO EN OTRO LUGAR</text>
+</svg>

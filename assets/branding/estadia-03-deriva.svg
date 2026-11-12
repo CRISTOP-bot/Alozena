@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="260" viewBox="0 0 900 260" role="img" aria-labelledby="t d">
+<title id="t">Estadía — Deriva</title><desc id="d">Un solo trazo cálido dibuja una ruta lenta entre tres horizontes y termina en un punto de llegada.</desc>
+<rect width="900" height="260" fill="#F5F1EF"/>
+<g transform="translate(22 20)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+<path d="M20 146c29 0 28-95 62-95s31 105 66 105 30-71 60-71" stroke="#333B52" stroke-width="15"/>
+<path d="M21 146c29 0 28-95 62-95s31 105 66 105 30-71 60-71" stroke="#D28A72" stroke-width="5"/>
+<path d="M180 85c18 0 23 14 23 14" stroke="#E3B86C" stroke-width="12"/>
+<circle cx="208" cy="85" r="11" fill="#D28A72" stroke="none"/>
+<path d="M21 177h174" stroke="#C9C4C1" stroke-width="2"/>
+</g>
+<text x="270" y="144" fill="#333B52" font-family="Georgia, 'Times New Roman', serif" font-size="83" font-weight="400" letter-spacing="-3">Estadía</text>
+<path d="M276 173h46" stroke="#D28A72" stroke-width="3"/>
+<text x="336" y="181" fill="#77717C" font-family="Arial, sans-serif" font-size="16" letter-spacing="4">CAMBIA DE AIRE, QUÉDATE</text>
+</svg>
