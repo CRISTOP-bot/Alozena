@@ -2,14 +2,20 @@ package com.cristopbot.estadia
 
 import android.os.Bundle
 import android.app.Activity
+import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.NoCredentialException
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthException
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -70,16 +76,26 @@ private fun EstadiaApp() {
     var showFilters by remember { mutableStateOf(false) }
     val categories = listOf("Todo", "Frente al mar", "Cabañas", "Casas", "Albercas", "Ciudades")
     val context = LocalContext.current
+    val activity = context as? Activity
     val scope = rememberCoroutineScope()
+    val preferences = remember(context) { context.getSharedPreferences("estadia_preferences", Context.MODE_PRIVATE) }
+    var hasCompletedWelcome by remember { mutableStateOf(preferences.getBoolean("welcome_completed", false)) }
+    var signInInProgress by remember { mutableStateOf(false) }
     val backendState = remember { EstadiaRepository.backendState(context) }
     var remoteStays by remember { mutableStateOf<List<Stay>?>(null) }
     var remoteFavoriteIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var backendMessage by remember { mutableStateOf<String?>(null) }
     var accountMessage by remember { mutableStateOf<String?>(null) }
     val firebaseAuth = remember(backendState) {
-        if (backendState == BackendState.Ready) runCatching { FirebaseAuth.getInstance() }.getOrNull() else null
+        if (backendState == BackendState.Ready) runCatching { FirebaseAuth.getInstance(FirebaseApp.getInstance()) }.getOrNull() else null
     }
     var userEmail by remember(firebaseAuth) { mutableStateOf(firebaseAuth?.currentUser?.email) }
+    LaunchedEffect(userEmail) {
+        if (userEmail != null && !hasCompletedWelcome) {
+            preferences.edit().putBoolean("welcome_completed", true).apply()
+            hasCompletedWelcome = true
+        }
+    }
     DisposableEffect(firebaseAuth) {
         val listener = FirebaseAuth.AuthStateListener { auth -> userEmail = auth.currentUser?.email }
         firebaseAuth?.addAuthStateListener(listener)
@@ -105,6 +121,58 @@ private fun EstadiaApp() {
                 .onFailure { backendMessage = "Inicia sesión para cargar tus favoritos" }
         }
     }
+    fun startGoogleSignIn() {
+        if (signInInProgress) return
+        scope.launch {
+            accountMessage = null
+            signInInProgress = true
+            try {
+                check(backendState == BackendState.Ready) { "Esta instalación no tiene configuración Firebase." }
+                val clientIdResource = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
+                check(clientIdResource != 0) { "Falta el cliente OAuth web. Actualiza google-services.json desde Firebase." }
+                val clientId = context.getString(clientIdResource)
+                val hostActivity = activity ?: error("No se pudo abrir la ventana de acceso de Google.")
+                val googleOption = GetSignInWithGoogleOption.Builder(clientId).build()
+                val request = GetCredentialRequest.Builder().addCredentialOption(googleOption).build()
+                val response = CredentialManager.create(context).getCredential(hostActivity, request)
+                val credential = response.credential
+                val idToken = when {
+                    credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL ->
+                        GoogleIdTokenCredential.createFrom(credential.data).idToken
+                    else -> error("Google no devolvió un token de acceso válido.")
+                }
+                EstadiaRepository.create(context).signInWithGoogleIdToken(idToken)
+                userEmail = firebaseAuth?.currentUser?.email
+                preferences.edit().putBoolean("welcome_completed", true).apply()
+                hasCompletedWelcome = true
+                accountMessage = "Sesión iniciada."
+            } catch (error: GetCredentialCancellationException) {
+                accountMessage = "Inicio de sesión cancelado. Puedes intentarlo de nuevo cuando quieras."
+            } catch (error: NoCredentialException) {
+                accountMessage = "No se encontró una cuenta de Google disponible en este dispositivo. Revisa que Google Play Services esté actualizado o agrega una cuenta en Ajustes."
+            } catch (error: FirebaseAuthInvalidCredentialsException) {
+                accountMessage = "Firebase rechazó la credencial de Google. Revisa que el proveedor Google esté activo y que OAuth incluya las huellas de esta app."
+            } catch (error: FirebaseAuthException) {
+                accountMessage = if (error.errorCode == "ERROR_OPERATION_NOT_ALLOWED") {
+                    "Google todavía no está habilitado como proveedor en Firebase Authentication."
+                } else {
+                    "Firebase no aceptó el acceso de Google (${error.errorCode}). Revisa proveedor y configuración OAuth."
+                }
+            } catch (error: Exception) {
+                accountMessage = error.localizedMessage?.takeIf { it.isNotBlank() }
+                    ?: "No se pudo iniciar sesión. Revisa tu conexión y vuelve a intentarlo."
+            } finally {
+                signInInProgress = false
+            }
+        }
+    }
+
+    fun continueAsGuest() {
+        preferences.edit().putBoolean("welcome_completed", true).apply()
+        hasCompletedWelcome = true
+        accountMessage = null
+    }
+
     fun toggleFavorite(stay: Stay) {
         val wasFavorite = stay.id in effectiveFavorites
         favorites = if (wasFavorite) favorites - stay.id else favorites + stay.id
@@ -115,6 +183,17 @@ private fun EstadiaApp() {
                     .onFailure { remoteFavoriteIds = if (wasFavorite) remoteFavoriteIds + stay.id.toString() else remoteFavoriteIds - stay.id.toString(); backendMessage = "Inicia sesión para guardar favoritos" }
             }
         }
+    }
+
+    if (!hasCompletedWelcome) {
+        FirstRunLoginPage(
+            isLoading = signInInProgress,
+            backendReady = backendState == BackendState.Ready,
+            errorMessage = accountMessage,
+            onGoogleSignIn = ::startGoogleSignIn,
+            onContinueAsGuest = ::continueAsGuest
+        )
+        return
     }
 
     Scaffold(
@@ -135,39 +214,8 @@ private fun EstadiaApp() {
                 userEmail = userEmail,
                 backendReady = backendState == BackendState.Ready,
                 statusMessage = accountMessage,
-                onSignIn = {
-                    scope.launch {
-                        accountMessage = null
-                        try {
-                            val clientIdResource = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
-                            check(clientIdResource != 0) { "Falta la configuración OAuth de Firebase. Actualiza google-services.json." }
-                            val clientId = context.getString(clientIdResource)
-                            val googleOption = GetGoogleIdOption.Builder()
-                                .setFilterByAuthorizedAccounts(false)
-                                .setServerClientId(clientId)
-                                .setAutoSelectEnabled(false)
-                                .build()
-                            val request = GetCredentialRequest.Builder()
-                                .addCredentialOption(googleOption)
-                                .build()
-                            val response = CredentialManager.create(context).getCredential(context, request)
-                            val credential = response.credential
-                            val idToken = when {
-                                credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL ->
-                                    GoogleIdTokenCredential.createFrom(credential.data).idToken
-                                else -> error("Google no devolvió una credencial compatible")
-                            }
-                            EstadiaRepository.create(context).signInWithGoogleIdToken(idToken)
-                            userEmail = firebaseAuth?.currentUser?.email
-                            accountMessage = "Sesión iniciada."
-                        } catch (error: Exception) {
-                            accountMessage = when {
-                                error is kotlinx.coroutines.CancellationException -> "Inicio de sesión cancelado."
-                                else -> error.localizedMessage?.takeIf { it.isNotBlank() } ?: "No se pudo iniciar sesión con Google."
-                            }
-                        }
-                    }
-                },
+                isLoading = signInInProgress,
+                onSignIn = ::startGoogleSignIn,
                 onSignOut = {
                     firebaseAuth?.signOut()
                     favorites = emptySet()
@@ -217,6 +265,52 @@ private fun EstadiaApp() {
     }
     selectedStay?.let { stay -> StayDetails(stay = stay, onClose = { selectedStay = null }) }
     if (showFilters) CategoryFilterDialog(categories = categories, selected = category, onSelect = { category = it; showFilters = false }, onDismiss = { showFilters = false })
+}
+
+@Composable
+private fun FirstRunLoginPage(
+    isLoading: Boolean,
+    backendReady: Boolean,
+    errorMessage: String?,
+    onGoogleSignIn: () -> Unit,
+    onContinueAsGuest: () -> Unit
+) {
+    Box(Modifier.fillMaxSize().background(Color.White), contentAlignment = Alignment.Center) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(Modifier.background(Color(0xFFFFF0F2), CircleShape).padding(24.dp), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Home, contentDescription = null, tint = Coral, modifier = Modifier.size(38.dp))
+            }
+            Spacer(Modifier.height(20.dp))
+            Text("Bienvenido a Estadía", fontSize = 27.sp, fontWeight = FontWeight.Bold, color = Ink)
+            Spacer(Modifier.height(8.dp))
+            Text("Inicia sesión para guardar tus alojamientos favoritos y tenerlos siempre contigo.", color = Muted, fontSize = 15.sp, lineHeight = 22.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Spacer(Modifier.height(28.dp))
+            Button(
+                onClick = onGoogleSignIn,
+                enabled = backendReady && !isLoading,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                if (isLoading) CircularProgressIndicator(modifier = Modifier.size(21.dp), color = Color.White, strokeWidth = 2.dp)
+                else Text("Continuar con Google", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            }
+            if (!backendReady) {
+                Spacer(Modifier.height(8.dp))
+                Text("Google no está disponible en esta instalación; puedes explorar como invitado.", color = Muted, fontSize = 12.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
+            errorMessage?.let {
+                Spacer(Modifier.height(12.dp))
+                Text(it, color = Color(0xFFB3261E), fontSize = 13.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
+            Spacer(Modifier.height(16.dp))
+            TextButton(onClick = onContinueAsGuest, enabled = !isLoading) {
+                Text("Explorar como invitado", color = Ink, fontSize = 14.sp)
+            }
+        }
+    }
 }
 
 @Composable

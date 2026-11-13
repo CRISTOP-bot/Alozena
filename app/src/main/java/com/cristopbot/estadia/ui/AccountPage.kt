@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.PersonOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -39,6 +40,7 @@ fun AccountPage(
     userEmail: String?,
     backendReady: Boolean,
     statusMessage: String? = null,
+    isLoading: Boolean = false,
     onSignIn: () -> Unit,
     onSignOut: () -> Unit
 ) {
@@ -87,8 +89,9 @@ fun AccountPage(
                         Spacer(Modifier.height(6.dp))
                         Text("Inicia sesión con Google. Estadía no recibe ni guarda tu contraseña.", color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center)
                         Spacer(Modifier.height(18.dp))
-                        Button(onClick = onSignIn, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-                            Text("Continuar con Google")
+                        Button(onClick = onSignIn, enabled = !isLoading, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+                            if (isLoading) CircularProgressIndicator(modifier = Modifier.height(20.dp), strokeWidth = 2.dp)
+                            else Text("Continuar con Google")
                         }
                     }
                     else -> Text("El inicio de sesión estará disponible cuando Firebase esté configurado en esta instalación.", color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center)
