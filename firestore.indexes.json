@@ -9,15 +9,6 @@
       ]
     },
     {
-      "collectionGroup": "stays",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {"fieldPath": "published", "order": "ASCENDING"},
-        {"fieldPath": "category", "order": "ASCENDING"},
-        {"fieldPath": "__name__", "order": "ASCENDING"}
-      ]
-    },
-    {
       "collectionGroup": "bookings",
       "queryScope": "COLLECTION",
       "fields": [

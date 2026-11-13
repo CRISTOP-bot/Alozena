@@ -1,10 +1,6 @@
 package com.cristopbot.estadia.data
 
 import android.content.Context
-import androidx.credentials.CredentialManager
-import androidx.credentials.GetCredentialRequest
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.cristopbot.estadia.Stay
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
@@ -29,19 +25,6 @@ class EstadiaRepository private constructor(
     private val auth: FirebaseAuth,
     private val db: FirebaseFirestore
 ) {
-    suspend fun signInWithGoogle(context: Context, webClientId: String) {
-        require(webClientId.isNotBlank()) { "Configura el OAuth Web client ID de Firebase" }
-        val googleOption = GetGoogleIdOption.Builder()
-            .setFilterByAuthorizedAccounts(false)
-            .setServerClientId(webClientId)
-            .setAutoSelectEnabled(false)
-            .build()
-        val request = GetCredentialRequest.Builder().addCredentialOption(googleOption).build()
-        val result = CredentialManager.create(context).getCredential(context, request)
-        val tokenCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
-        signInWithGoogleIdToken(tokenCredential.idToken)
-    }
-
     suspend fun signInWithGoogleIdToken(idToken: String) {
         require(idToken.isNotBlank()) { "Google ID token is required" }
         val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
@@ -50,7 +33,6 @@ class EstadiaRepository private constructor(
 
     fun signOut() = auth.signOut()
     fun currentUid(): String? = auth.currentUser?.uid
-    fun displayNameOrEmail(): String? = auth.currentUser?.displayName ?: auth.currentUser?.email
 
     suspend fun searchStays(destination: String = "", category: String = "Todo"): List<Stay> {
         val tokens = normalizeSearchTokens(destination)
@@ -72,8 +54,7 @@ class EstadiaRepository private constructor(
                     badge = doc.getString("badge") ?: "",
                     description = doc.getString("description") ?: "",
                     beds = (doc.getLong("beds") ?: 1L).toInt(),
-                    guests = (doc.getLong("maxGuests") ?: 2L).toInt(),
-                    firestoreId = doc.id
+                    guests = (doc.getLong("maxGuests") ?: 2L).toInt()
                 )
             }.getOrNull()
         }
@@ -92,11 +73,11 @@ class EstadiaRepository private constructor(
         return db.collection("users").document(uid).collection("favorites").get().await().documents.map { it.id }.toSet()
     }
 
-    suspend fun getMyBookingRequests(): List<Pair<String, Map<String, Any?>>> {
+    suspend fun getMyBookingRequests(): List<Map<String, Any?>> {
         val uid = currentUid() ?: error("Inicia sesión para consultar tus solicitudes")
         return db.collection("bookings").whereEqualTo("guestUid", uid)
             .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
-            .limit(100).get().await().documents.map { it.id to it.data.orEmpty() }
+            .limit(100).get().await().documents.map { it.data.orEmpty() }
     }
 
     suspend fun cancelMyBookingRequest(bookingId: String) {
@@ -112,12 +93,9 @@ class EstadiaRepository private constructor(
     }
 
     /** Writes a request only; does not promise availability, payment, or confirmed booking. */
-    suspend fun createBooking(stayId: String, checkIn: String, checkOut: String, guests: Int): String {
+    suspend fun createBooking(stayId: String, checkIn: String, checkOut: String, guests: Int) {
         val uid = currentUid() ?: error("Inicia sesión para solicitar una reserva")
-        require(stayId.isNotBlank() && guests > 0)
-        val checkInDate = parseDate(checkIn)
-        val checkOutDate = parseDate(checkOut)
-        require(checkInDate.isBefore(checkOutDate)) { "La salida debe ser posterior a la llegada" }
+        require(stayId.isNotBlank() && guests > 0 && validIsoDate(checkIn) && validIsoDate(checkOut) && checkIn < checkOut)
         val stayRef = db.collection("stays").document(stayId)
         val bookingRef = db.collection("bookings").document()
         db.runTransaction { transaction ->
@@ -125,23 +103,18 @@ class EstadiaRepository private constructor(
             check(stay.exists() && stay.getBoolean("published") == true) { "El alojamiento no está disponible" }
             check(guests <= (stay.getLong("maxGuests")?.toInt() ?: 0)) { "El número de huéspedes supera la capacidad" }
             transaction.set(bookingRef, mapOf(
-                "guestUid" to uid, "stayId" to stayId,
-                "checkIn" to com.google.firebase.Timestamp(java.util.Date.from(checkInDate.atStartOfDay(java.time.ZoneOffset.UTC).toInstant())),
-                "checkOut" to com.google.firebase.Timestamp(java.util.Date.from(checkOutDate.atStartOfDay(java.time.ZoneOffset.UTC).toInstant())),
+                "guestUid" to uid, "stayId" to stayId, "checkIn" to checkIn, "checkOut" to checkOut,
                 "guests" to guests, "status" to "requested",
                 "createdAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
             ))
             null
         }.await()
-        return bookingRef.id
     }
 
     companion object {
         private val ISO_DATE = Regex("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
-        private fun parseDate(value: String): java.time.LocalDate {
-            require(ISO_DATE.matches(value)) { "Usa fechas con formato AAAA-MM-DD" }
-            return java.time.LocalDate.parse(value)
-        }
+        private fun validIsoDate(value: String): Boolean =
+            ISO_DATE.matches(value) && runCatching { java.time.LocalDate.parse(value) }.isSuccess
         fun backendState(context: Context): BackendState =
             if (FirebaseApp.getApps(context).isEmpty()) BackendState.NotConfigured else BackendState.Ready
 
