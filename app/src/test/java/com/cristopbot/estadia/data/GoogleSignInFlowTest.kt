@@ -25,6 +25,9 @@ class GoogleSignInFlowTest {
         assertTrue(shouldFallbackToAccountChooser(CredentialFlowFailure.Cancelled))
         assertTrue(shouldFallbackToAccountChooser(CredentialFlowFailure.NoCredentials))
         assertFalse(shouldFallbackToAccountChooser(CredentialFlowFailure.Other))
+        assertEquals(GoogleSignInResult.Cancelled, accountChooserResult(CredentialFlowFailure.Cancelled))
+        assertEquals(GoogleSignInResult.NoAccounts, accountChooserResult(CredentialFlowFailure.NoCredentials))
+        assertEquals(GoogleSignInResult.Failed, accountChooserResult(CredentialFlowFailure.Other))
     }
 
     @Test fun credentialFailuresNeverExposeExceptionNamesOrCodes() {
