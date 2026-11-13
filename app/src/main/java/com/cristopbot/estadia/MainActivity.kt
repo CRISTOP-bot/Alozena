@@ -12,6 +12,7 @@ import androidx.activity.compose.setContent
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
+import com.google.firebase.FirebaseNetworkException
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -215,6 +216,10 @@ private fun AlozenaApp() {
                         accountMessage = "No pudimos completar el acceso con Google. Inténtalo de nuevo o sigue explorando como invitado."
                     }
                 }
+            } catch (error: FirebaseNetworkException) {
+                Log.w("AlozenaAuth", "Network issue during Firebase sign-in", error)
+                accountMessageKind = AccountMessageKind.Error
+                accountMessage = firebaseSignInMessage("ERROR_NETWORK_REQUEST_FAILED")
             } catch (error: FirebaseAuthException) {
                 Log.w("AlozenaAuth", "Firebase sign-in rejected", error)
                 accountMessageKind = AccountMessageKind.Error
