@@ -41,7 +41,6 @@ class GoogleSignInFlow {
             return if (shouldFallbackToAccountChooser(CredentialFlowFailure.NoCredentials)) {
                 requestAccountChooser(manager, activity, serverClientId)
             } else GoogleSignInResult.Failed
-        }
         } catch (_: Exception) {
             return GoogleSignInResult.Failed
         }
