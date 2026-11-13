@@ -9,13 +9,15 @@ service cloud.firestore {
     }
     function validBookingCreate() {
       let stayPath = /databases/$(database)/documents/stays/$(request.resource.data.stayId);
-      return request.resource.data.keys().hasOnly(['guestUid', 'stayId', 'hostUid', 'stayTitle', 'nightlyPrice', 'checkIn', 'checkOut', 'guests', 'status', 'createdAt'])
-        && request.resource.data.keys().hasAll(['guestUid', 'stayId', 'hostUid', 'stayTitle', 'nightlyPrice', 'checkIn', 'checkOut', 'guests', 'status', 'createdAt'])
+      return request.resource.data.keys().hasOnly(['guestUid', 'stayId', 'hostUid', 'stayTitle', 'nightlyPrice', 'cleaningFee', 'securityDeposit', 'checkIn', 'checkOut', 'guests', 'status', 'createdAt'])
+        && request.resource.data.keys().hasAll(['guestUid', 'stayId', 'hostUid', 'stayTitle', 'nightlyPrice', 'cleaningFee', 'securityDeposit', 'checkIn', 'checkOut', 'guests', 'status', 'createdAt'])
         && request.resource.data.guestUid == request.auth.uid
         && request.resource.data.stayId is string
         && request.resource.data.hostUid == get(stayPath).data.hostUid
         && request.resource.data.stayTitle is string
         && request.resource.data.nightlyPrice is int && request.resource.data.nightlyPrice > 0
+        && request.resource.data.cleaningFee is int && request.resource.data.cleaningFee >= 0
+        && request.resource.data.securityDeposit is int && request.resource.data.securityDeposit >= 0
         && request.resource.data.status == 'requested'
         && request.resource.data.createdAt == request.time
         && request.resource.data.checkIn is timestamp

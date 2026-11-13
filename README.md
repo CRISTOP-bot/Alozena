@@ -32,4 +32,4 @@ Creado por un niño de 12 años BTW
 
 ## Despliegue de reglas
 
-En tu proyecto Firebase, ejecuta `firebase deploy --only firestore:rules,firestore:indexes,storage` con Firebase CLI autenticado. El CI de este repositorio ejecuta emuladores locales y no modifica reglas remotas.
+En tu proyecto Firebase, ejecuta `firebase deploy --only firestore:rules,firestore:indexes,storage` con Firebase CLI autenticado. El CI de este repositorio ejecuta emuladores locales y no modifica reglas remotas. El flujo de publicar una foto solo funcionará en producción después de habilitar Firebase Storage para el proyecto.

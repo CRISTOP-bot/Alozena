@@ -26,7 +26,7 @@ async function seedStay(id = 'stay-1', extra = {}) {
 }
 async function seedBooking(id, guestUid = 'guest') {
   await env.withSecurityRulesDisabled(async c => setDoc(doc(c.firestore(), 'bookings', id), {
-    guestUid, stayId: 'stay-1', hostUid: 'host-1', stayTitle: 'Casa real publicada', nightlyPrice: 1200, cleaningFee: 0, checkIn: Timestamp.fromDate(new Date('2027-05-01T00:00:00Z')),
+    guestUid, stayId: 'stay-1', hostUid: 'host-1', stayTitle: 'Casa real publicada', nightlyPrice: 1200, cleaningFee: 0, securityDeposit: 0, checkIn: Timestamp.fromDate(new Date('2027-05-01T00:00:00Z')),
     checkOut: Timestamp.fromDate(new Date('2027-05-03T00:00:00Z')), guests: 1, status: 'requested',
     createdAt: Timestamp.fromDate(new Date('2027-01-01T00:00:00Z'))
   }));
@@ -70,7 +70,7 @@ test('profiles and favorites are isolated to their owner', async () => {
 
 test('booking requests require auth, correct owner, valid range and capacity', async () => {
   await seedStay();
-  const valid = { guestUid: 'guest', stayId: 'stay-1', hostUid: 'host-1', stayTitle: 'Casa real publicada', nightlyPrice: 1200, cleaningFee: 0, checkIn: Timestamp.fromDate(new Date('2027-05-01T00:00:00Z')), checkOut: Timestamp.fromDate(new Date('2027-05-03T00:00:00Z')), guests: 2, status: 'requested', createdAt: serverTimestamp() };
+  const valid = { guestUid: 'guest', stayId: 'stay-1', hostUid: 'host-1', stayTitle: 'Casa real publicada', nightlyPrice: 1200, cleaningFee: 0, securityDeposit: 0, checkIn: Timestamp.fromDate(new Date('2027-05-01T00:00:00Z')), checkOut: Timestamp.fromDate(new Date('2027-05-03T00:00:00Z')), guests: 2, status: 'requested', createdAt: serverTimestamp() };
   await assertFails(setDoc(doc(env.unauthenticatedContext().firestore(), 'bookings/anon'), valid));
   const db = env.authenticatedContext('guest').firestore();
   await assertSucceeds(setDoc(doc(db, 'bookings/good'), valid));
