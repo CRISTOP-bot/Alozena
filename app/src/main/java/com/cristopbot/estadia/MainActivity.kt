@@ -9,19 +9,10 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.credentials.CredentialManager
-import androidx.credentials.CustomCredential
-import androidx.credentials.GetCredentialRequest
-import androidx.credentials.GetCredentialResponse
-import androidx.credentials.exceptions.GetCredentialCancellationException
-import androidx.credentials.exceptions.NoCredentialException
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthException
+import com.google.firebase.auth.FirebaseNetworkException
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -56,6 +47,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import com.cristopbot.estadia.data.BackendState
 import com.cristopbot.estadia.data.EstadiaRepository
+import com.cristopbot.estadia.data.GoogleSignInFlow
+import com.cristopbot.estadia.data.GoogleSignInResult
+import com.cristopbot.estadia.data.firebaseSignInMessage
+import com.cristopbot.estadia.ui.AccountMessageKind
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -119,6 +114,7 @@ private fun AlozenaApp() {
     var remoteFavoriteIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var backendMessage by remember { mutableStateOf<String?>(null) }
     var accountMessage by remember { mutableStateOf<String?>(null) }
+    var accountMessageKind by remember { mutableStateOf(AccountMessageKind.Error) }
     val firebaseAuth = remember(backendState) {
         if (backendState == BackendState.Ready) runCatching { FirebaseAuth.getInstance(FirebaseApp.getInstance()) }.getOrNull() else null
     }
@@ -184,56 +180,54 @@ private fun AlozenaApp() {
             accountMessage = null
             signInInProgress = true
             try {
-                check(backendState == BackendState.Ready) { "Esta instalación no tiene configuración Firebase." }
+                if (backendState != BackendState.Ready) {
+                    accountMessageKind = AccountMessageKind.Error
+                    accountMessage = "Google no está disponible en esta instalación. Puedes seguir explorando Alozena como invitado."
+                    return@launch
+                }
                 val clientIdResource = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
-                check(clientIdResource != 0) { "Falta el cliente OAuth web. Actualiza google-services.json desde Firebase." }
-                val clientId = context.getString(clientIdResource)
-                val hostActivity = activity ?: error("No se pudo abrir la ventana de acceso de Google.")
-                val credentialManager = CredentialManager.create(hostActivity)
-                val directSignIn = GetSignInWithGoogleOption.Builder(clientId).build()
-                val directRequest = GetCredentialRequest.Builder().addCredentialOption(directSignIn).build()
-                val response: GetCredentialResponse = try {
-                    credentialManager.getCredential(hostActivity, directRequest)
-                } catch (cancelled: GetCredentialCancellationException) {
-                    // Some Google Play Services builds close the button-flow after the account is chosen.
-                    // Retry once with the standard account chooser before reporting a cancellation.
-                    Log.w("EstadiaAuth", "Google button flow closed; retrying with account chooser", cancelled)
-                    val accountChooser = GetGoogleIdOption.Builder()
-                        .setFilterByAuthorizedAccounts(false)
-                        .setServerClientId(clientId)
-                        .setAutoSelectEnabled(false)
-                        .build()
-                    val chooserRequest = GetCredentialRequest.Builder().addCredentialOption(accountChooser).build()
-                    credentialManager.getCredential(hostActivity, chooserRequest)
+                if (clientIdResource == 0) {
+                    accountMessageKind = AccountMessageKind.Error
+                    accountMessage = "No pudimos preparar el acceso con Google. Puedes explorar Alozena como invitado e intentar más tarde."
+                    return@launch
                 }
-                val credential = response.credential
-                val idToken = when {
-                    credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL ->
-                        GoogleIdTokenCredential.createFrom(credential.data).idToken
-                    else -> error("Google no devolvió un token de acceso válido.")
+                val hostActivity = activity
+                if (hostActivity == null) {
+                    accountMessageKind = AccountMessageKind.Error
+                    accountMessage = "No pudimos abrir el selector de cuentas. Inténtalo de nuevo."
+                    return@launch
                 }
-                EstadiaRepository.create(context).signInWithGoogleIdToken(idToken)
-                userEmail = firebaseAuth?.currentUser?.email
-                preferences.edit().putBoolean("welcome_completed", true).apply()
-                hasCompletedWelcome = true
-                accountMessage = "Sesión iniciada."
-            } catch (error: GetCredentialCancellationException) {
-                Log.i("EstadiaAuth", "Google account chooser was dismissed", error)
-                accountMessage = "El selector de Google se cerró antes de devolver una cuenta. Toca Continuar con Google para volver a intentarlo."
-            } catch (error: NoCredentialException) {
-                accountMessage = "No se encontró una cuenta de Google disponible en este dispositivo. Revisa que Google Play Services esté actualizado o agrega una cuenta en Ajustes."
-            } catch (error: FirebaseAuthInvalidCredentialsException) {
-                accountMessage = "Firebase rechazó la credencial de Google. Revisa que el proveedor Google esté activo y que OAuth incluya las huellas de esta app."
+                when (val result = GoogleSignInFlow().requestIdToken(hostActivity, context.getString(clientIdResource))) {
+                    is GoogleSignInResult.Token -> {
+                        EstadiaRepository.create(context).signInWithGoogleIdToken(result.idToken)
+                        userEmail = firebaseAuth?.currentUser?.email
+                        preferences.edit().putBoolean("welcome_completed", true).apply()
+                        hasCompletedWelcome = true
+                        accountMessageKind = AccountMessageKind.Success
+                        accountMessage = "Sesión iniciada."
+                    }
+                    GoogleSignInResult.NoAccounts -> {
+                        accountMessageKind = AccountMessageKind.Neutral
+                        accountMessage = "No encontramos cuentas de Google disponibles. Puedes seguir explorando Alozena como invitado."
+                    }
+                    GoogleSignInResult.Cancelled -> accountMessage = null
+                    GoogleSignInResult.Failed -> {
+                        accountMessageKind = AccountMessageKind.Error
+                        accountMessage = "No pudimos completar el acceso con Google. Inténtalo de nuevo o sigue explorando como invitado."
+                    }
+                }
+            } catch (error: FirebaseNetworkException) {
+                Log.w("AlozenaAuth", "Network issue during Firebase sign-in", error)
+                accountMessageKind = AccountMessageKind.Error
+                accountMessage = firebaseSignInMessage("ERROR_NETWORK_REQUEST_FAILED")
             } catch (error: FirebaseAuthException) {
-                accountMessage = if (error.errorCode == "ERROR_OPERATION_NOT_ALLOWED") {
-                    "Google todavía no está habilitado como proveedor en Firebase Authentication."
-                } else {
-                    "Firebase no aceptó el acceso de Google (${error.errorCode}). Revisa proveedor y configuración OAuth."
-                }
+                Log.w("AlozenaAuth", "Firebase sign-in rejected", error)
+                accountMessageKind = AccountMessageKind.Error
+                accountMessage = firebaseSignInMessage(error.errorCode)
             } catch (error: Exception) {
-                Log.e("EstadiaAuth", "Google sign-in failed: ${error.javaClass.simpleName}", error)
-                accountMessage = error.localizedMessage?.takeIf { it.isNotBlank() }
-                    ?: "No se pudo completar el acceso con Google (${error.javaClass.simpleName}). Revisa tu conexión y vuelve a intentarlo."
+                Log.e("AlozenaAuth", "Google sign-in could not be completed", error)
+                accountMessageKind = AccountMessageKind.Error
+                accountMessage = "No se pudo completar el acceso con Google. Inténtalo de nuevo o sigue explorando como invitado."
             } finally {
                 signInInProgress = false
             }
@@ -307,6 +301,8 @@ private fun AlozenaApp() {
             isLoading = signInInProgress,
             backendReady = backendState == BackendState.Ready,
             errorMessage = accountMessage,
+            messageKind = accountMessageKind,
+            onDismissMessage = { accountMessage = null },
             termsAccepted = hasAcceptedTerms,
             onTermsClick = { showTermsDialog = true },
             onTermsAccepted = {
@@ -361,6 +357,8 @@ private fun AlozenaApp() {
                 userEmail = userEmail,
                 backendReady = backendState == BackendState.Ready,
                 statusMessage = accountMessage,
+                statusKind = accountMessageKind,
+                onDismissMessage = { accountMessage = null },
                 isLoading = signInInProgress,
                 onOpenTerms = { showTermsDialog = true },
                 onOpenFavorites = { selectedTab = 1 },
@@ -372,6 +370,7 @@ private fun AlozenaApp() {
                     favorites = emptySet()
                     remoteFavoriteIds = emptySet()
                     userEmail = null
+                    accountMessageKind = AccountMessageKind.Neutral
                     accountMessage = "Se cerró la sesión de Alozena."
                 }
             )
@@ -494,6 +493,8 @@ private fun FirstRunLoginPage(
     isLoading: Boolean,
     backendReady: Boolean,
     errorMessage: String?,
+    messageKind: AccountMessageKind,
+    onDismissMessage: () -> Unit,
     termsAccepted: Boolean,
     onTermsClick: () -> Unit,
     onTermsAccepted: () -> Unit,
@@ -530,9 +531,21 @@ private fun FirstRunLoginPage(
                 Spacer(Modifier.height(8.dp))
                 Text("Google no está disponible en esta instalación; puedes explorar Alozena como invitado.", color = Muted, fontSize = 12.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
-            errorMessage?.let {
-                Spacer(Modifier.height(12.dp))
-                Text(it, color = Color(0xFFB3261E), fontSize = 13.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            errorMessage?.let { message ->
+                val color = when (messageKind) {
+                    AccountMessageKind.Success -> Color(0xFF237A57)
+                    AccountMessageKind.Neutral -> Muted
+                    AccountMessageKind.Error -> Color(0xFF9D3933)
+                }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(message, color = color, fontSize = 13.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        if (messageKind == AccountMessageKind.Error && backendReady) {
+                            TextButton(onClick = onGoogleSignIn, enabled = !isLoading) { Text("Intentar de nuevo", color = color) }
+                        }
+                    }
+                    androidx.compose.material3.IconButton(onClick = onDismissMessage) { Icon(Icons.Default.Close, contentDescription = "Descartar mensaje", tint = color) }
+                }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked = termsAccepted, onCheckedChange = { if (it) onTermsAccepted() })
