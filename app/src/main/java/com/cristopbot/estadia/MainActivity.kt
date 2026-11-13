@@ -4,6 +4,10 @@ import android.os.Bundle
 import android.app.Activity
 import android.content.Context
 import android.util.Log
+import android.content.Intent
+import android.net.Uri
+import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteOpenHelper
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.credentials.CredentialManager
@@ -19,11 +23,14 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthException
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -37,9 +44,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.DisposableEffect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
@@ -83,7 +93,11 @@ private fun EstadiaApp() {
     val scope = rememberCoroutineScope()
     val preferences = remember(context) { context.getSharedPreferences("estadia_preferences", Context.MODE_PRIVATE) }
     var hasCompletedWelcome by remember { mutableStateOf(preferences.getBoolean("welcome_completed", false)) }
+    var hasAcceptedTerms by remember { mutableStateOf(preferences.getBoolean("terms_accepted_v1", false)) }
+    var showTermsDialog by remember { mutableStateOf(false) }
+    val localFavoritesDb = remember(context) { GuestFavoritesDb(context) }
     var signInInProgress by remember { mutableStateOf(false) }
+    LaunchedEffect(localFavoritesDb) { favorites = withContext(Dispatchers.IO) { localFavoritesDb.readFavorites() } }
     val backendState = remember { EstadiaRepository.backendState(context) }
     var remoteStays by remember { mutableStateOf<List<Stay>?>(null) }
     var remoteFavoriteIds by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -105,7 +119,7 @@ private fun EstadiaApp() {
         onDispose { firebaseAuth?.removeAuthStateListener(listener) }
     }
     val isFavoritesPage = selectedTab == 1
-    val effectiveFavorites = if (backendState == BackendState.Ready) {
+    val effectiveFavorites = if (backendState == BackendState.Ready && userEmail != null) {
         (remoteStays ?: emptyList()).filter { it.id.toString() in remoteFavoriteIds }.map { it.id }.toSet()
     } else favorites
     val results = StayFilters.filter(remoteStays ?: StayCatalog.stays, query, category, isFavoritesPage, effectiveFavorites)
@@ -118,7 +132,7 @@ private fun EstadiaApp() {
         }
     }
     LaunchedEffect(backendState, isFavoritesPage, userEmail) {
-        if (backendState == BackendState.Ready && isFavoritesPage) {
+        if (backendState == BackendState.Ready && isFavoritesPage && userEmail != null) {
             runCatching { EstadiaRepository.create(context).getFavoriteStayIds() }
                 .onSuccess { remoteFavoriteIds = it }
                 .onFailure { backendMessage = "Inicia sesión para cargar tus favoritos" }
@@ -195,7 +209,8 @@ private fun EstadiaApp() {
     fun toggleFavorite(stay: Stay) {
         val wasFavorite = stay.id in effectiveFavorites
         favorites = if (wasFavorite) favorites - stay.id else favorites + stay.id
-        if (backendState == BackendState.Ready) {
+        if (userEmail == null) scope.launch(Dispatchers.IO) { localFavoritesDb.setFavorite(stay.id, !wasFavorite) }
+        if (backendState == BackendState.Ready && userEmail != null) {
             scope.launch {
                 runCatching { EstadiaRepository.create(context).setFavorite(stay.id.toString(), !wasFavorite) }
                     .onSuccess { remoteFavoriteIds = if (wasFavorite) remoteFavoriteIds - stay.id.toString() else remoteFavoriteIds + stay.id.toString() }
@@ -204,11 +219,44 @@ private fun EstadiaApp() {
         }
     }
 
-    if (!hasCompletedWelcome) {
+    if (showTermsDialog) {
+        AlertDialog(
+            onDismissRequest = { showTermsDialog = false },
+            title = { Text("Términos y privacidad") },
+            text = {
+                Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                    Text("Estadía es un proyecto independiente y no está afiliado ni respaldado por Airbnb. No vende ni reserva alojamientos.", fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(10.dp))
+            TextButton(onClick = { openExternalUrl(context, "https://www.airbnb.com/terms") }) { Text("Consultar términos de Airbnb") }
+                    Spacer(Modifier.height(10.dp))
+                    Text("Catálogo: los alojamientos, precios, calificaciones y descripciones mostrados dentro de Estadía son demostrativos y no son ofertas verificadas ni reseñas de huéspedes reales. Para anuncios y opiniones actuales, abre la búsqueda oficial de Airbnb desde la app.")
+                    Spacer(Modifier.height(10.dp))
+                    Text("Cuenta: si eliges Google, Firebase Authentication recibe los datos necesarios para autenticarte. Los favoritos de invitado se guardan localmente en este dispositivo; al borrar los datos de la app, se eliminan. Los favoritos de una sesión iniciada se sincronizan con Firebase según sus reglas.")
+                    Spacer(Modifier.height(10.dp))
+                    Text("Privacidad y seguridad: no introduzcas información financiera ni datos sensibles. Estadía no procesa pagos. Puedes explorar sin cuenta; iniciar sesión es opcional.")
+                    Spacer(Modifier.height(10.dp))
+                    Text("Uso: al continuar aceptas usar la app como demostración y entiendes que la búsqueda externa se abre en Airbnb y queda sujeta a sus propios términos y privacidad.")
+                    Spacer(Modifier.height(10.dp))
+                    TextButton(onClick = { openExternalUrl(context, "https://www.airbnb.com/terms/privacy_policy") }) { Text("Consultar privacidad de Airbnb") }
+                    Spacer(Modifier.height(10.dp))
+                    Text("Para una publicación comercial, estos términos deben ser revisados por un adulto responsable y adaptados a las leyes aplicables.", fontWeight = FontWeight.SemiBold)
+                }
+            },
+            confirmButton = { TextButton(onClick = { showTermsDialog = false }) { Text("Cerrar") } }
+        )
+    }
+
+    if (!hasCompletedWelcome || !hasAcceptedTerms) {
         FirstRunLoginPage(
             isLoading = signInInProgress,
             backendReady = backendState == BackendState.Ready,
             errorMessage = accountMessage,
+            termsAccepted = hasAcceptedTerms,
+            onTermsClick = { showTermsDialog = true },
+            onTermsAccepted = {
+                preferences.edit().putBoolean("terms_accepted_v1", true).apply()
+                hasAcceptedTerms = true
+            },
             onGoogleSignIn = ::startGoogleSignIn,
             onContinueAsGuest = ::continueAsGuest
         )
@@ -227,13 +275,21 @@ private fun EstadiaApp() {
         }
     ) { padding ->
         when (selectedTab) {
-            2 -> PlaceholderPage("Tus viajes", "Cuando reserves un alojamiento, aparecerá aquí.", Icons.Default.Luggage, Modifier.padding(padding))
+            2 -> PlaceholderPage(
+                title = "Tus viajes",
+                message = "Las reservas se gestionan en Airbnb; Estadía no reserva ni procesa pagos.",
+                icon = Icons.Default.Luggage,
+                modifier = Modifier.padding(padding),
+                actionLabel = "Abrir Airbnb",
+                onAction = { openAirbnbTrips(context) }
+            )
             3 -> com.cristopbot.estadia.ui.AccountPage(
                 modifier = Modifier.padding(padding).fillMaxSize(),
                 userEmail = userEmail,
                 backendReady = backendState == BackendState.Ready,
                 statusMessage = accountMessage,
                 isLoading = signInInProgress,
+                onOpenTerms = { showTermsDialog = true },
                 onSignIn = ::startGoogleSignIn,
                 onSignOut = {
                     firebaseAuth?.signOut()
@@ -247,6 +303,12 @@ private fun EstadiaApp() {
                 Column(Modifier.fillMaxSize().padding(padding)) {
                     SearchHeader(query = query, onQuery = { query = it }, onFilters = { showFilters = true })
                     backendMessage?.let { Text(it, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
+                    if (query.isNotBlank()) {
+                        OutlinedButton(
+                            onClick = { openAirbnbSearch(context, query) },
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp).fillMaxWidth()
+                        ) { Text("Buscar \"$query\" en Airbnb") }
+                    }
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 12.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
                         categories.forEach { item ->
                             val active = category == item
@@ -291,9 +353,16 @@ private fun FirstRunLoginPage(
     isLoading: Boolean,
     backendReady: Boolean,
     errorMessage: String?,
+    termsAccepted: Boolean,
+    onTermsClick: () -> Unit,
+    onTermsAccepted: () -> Unit,
     onGoogleSignIn: () -> Unit,
     onContinueAsGuest: () -> Unit
 ) {
+    androidx.compose.animation.AnimatedVisibility(
+        visible = true,
+        enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically()
+    ) {
     Box(Modifier.fillMaxSize().background(Color.White), contentAlignment = Alignment.Center) {
         Column(
             Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 24.dp),
@@ -309,7 +378,7 @@ private fun FirstRunLoginPage(
             Spacer(Modifier.height(28.dp))
             Button(
                 onClick = onGoogleSignIn,
-                enabled = backendReady && !isLoading,
+                enabled = backendReady && !isLoading && termsAccepted,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(14.dp)
             ) {
@@ -324,11 +393,16 @@ private fun FirstRunLoginPage(
                 Spacer(Modifier.height(12.dp))
                 Text(it, color = Color(0xFFB3261E), fontSize = 13.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
-            Spacer(Modifier.height(16.dp))
-            TextButton(onClick = onContinueAsGuest, enabled = !isLoading) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = termsAccepted, onCheckedChange = { if (it) onTermsAccepted() })
+                Text("Acepto los términos y la información de privacidad", color = Muted, fontSize = 12.sp, modifier = Modifier.clickable(onClick = onTermsClick))
+            }
+            TextButton(onClick = onTermsClick) { Text("Leer términos y privacidad", color = Coral) }
+            TextButton(onClick = onContinueAsGuest, enabled = !isLoading && termsAccepted) {
                 Text("Explorar como invitado", color = Ink, fontSize = 14.sp)
             }
         }
+    }
     }
 }
 
@@ -399,12 +473,13 @@ private fun CategoryFilterDialog(categories: List<String>, selected: String, onS
 
 @Composable
 private fun StayCard(stay: Stay, isFavorite: Boolean, onFavorite: () -> Unit, onClick: () -> Unit) {
-    Column(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+    Column(Modifier.fillMaxWidth().animateContentSize().clickable(onClick = onClick)) {
         Box(Modifier.fillMaxWidth().height(260.dp)) {
             AsyncImage(model = stay.image, contentDescription = stay.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)))
-            Text(stay.badge, Modifier.align(Alignment.TopStart).padding(13.dp).clip(RoundedCornerShape(6.dp)).background(Color.White).padding(horizontal = 10.dp, vertical = 6.dp), color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
+            Text("DEMO · ${stay.badge}", Modifier.align(Alignment.TopStart).padding(13.dp).clip(RoundedCornerShape(6.dp)).background(Color.White).padding(horizontal = 10.dp, vertical = 6.dp), color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
+            val heartScale by animateFloatAsState(if (isFavorite) 1.14f else 1f, label = "favorite-heart")
             IconButton(onClick = onFavorite, modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(42.dp)) {
-                Icon(if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Guardar en favoritos", tint = if (isFavorite) Coral else Color.White, modifier = Modifier.size(27.dp))
+                Icon(if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Guardar en favoritos", tint = if (isFavorite) Coral else Color.White, modifier = Modifier.size(27.dp).graphicsLayer { scaleX = heartScale; scaleY = heartScale })
             }
         }
         Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -412,7 +487,7 @@ private fun StayCard(stay: Stay, isFavorite: Boolean, onFavorite: () -> Unit, on
             Icon(Icons.Default.Star, null, tint = Ink, modifier = Modifier.size(15.dp)); Text(stay.rating, fontSize = 13.sp, color = Ink, modifier = Modifier.padding(start = 3.dp))
         }
         Text("Alojamiento · ${stay.beds} ${if (stay.beds == 1) "cama" else "camas"}", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
-        Text("Disponible durante todo el año", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+        Text("Precio y disponibilidad por confirmar", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
         Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("$${formatPrice(stay.price)} MXN", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = Ink)
             Text(" noche", fontSize = 13.sp, color = Ink)
@@ -422,10 +497,10 @@ private fun StayCard(stay: Stay, isFavorite: Boolean, onFavorite: () -> Unit, on
 
 @Composable
 private fun StayDetails(stay: Stay, onClose: () -> Unit) {
+    val context = LocalContext.current
     var guests by remember { mutableIntStateOf(1) }
-    var booked by remember { mutableStateOf(false) }
     AlertDialog(onDismissRequest = onClose, confirmButton = {
-        Button(onClick = { if (booked) onClose() else booked = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) { Text(if (booked) "Listo" else "Solicitar reserva · demo") }
+        Button(onClick = { openAirbnbSearch(context, stay.location, guests) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) { Text("Ver anuncios y reseñas reales en Airbnb") }
     }, dismissButton = {
         TextButton(onClick = onClose) { Text("Cerrar", color = Muted) }
     }, title = {
@@ -442,6 +517,9 @@ private fun StayDetails(stay: Stay, onClose: () -> Unit) {
             }
             Text("${stay.guests} huéspedes · ${stay.beds} camas", modifier = Modifier.padding(top = 8.dp), color = Muted, fontSize = 13.sp)
             Text(stay.description, modifier = Modifier.padding(top = 14.dp), color = Ink, fontSize = 14.sp, lineHeight = 21.sp)
+            Text("Descripción de demostración · no es un anuncio real", modifier = Modifier.padding(top = 8.dp), color = Muted, fontSize = 11.sp)
+            Text("Calificación ilustrativa: ${stay.rating} · sin reseñas verificadas", modifier = Modifier.padding(top = 5.dp), color = Muted, fontSize = 11.sp)
+            Text("Reseñas reales: consulta el anuncio directamente en Airbnb. Estadía no inventa opiniones de huéspedes.", modifier = Modifier.padding(top = 5.dp), color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
             HorizontalDivider(Modifier.padding(vertical = 14.dp), color = Color(0xFFEEEEEE))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) { Text("Huéspedes", fontWeight = FontWeight.SemiBold, color = Ink); Text("Hasta ${stay.guests} personas", color = Muted, fontSize = 12.sp) }
@@ -449,21 +527,66 @@ private fun StayDetails(stay: Stay, onClose: () -> Unit) {
                 Text("$guests", fontWeight = FontWeight.SemiBold)
                 IconButton(onClick = { if (guests < stay.guests) guests++ }, enabled = guests < stay.guests) { Icon(Icons.Default.AddCircleOutline, "Agregar huésped") }
             }
-            if (booked) Text("Solicitud de demostración lista para $guests ${if (guests == 1) "huésped" else "huéspedes"}. No se realizó ninguna reserva real.", modifier = Modifier.padding(top = 12.dp), color = Color(0xFF237A57), fontSize = 13.sp)
+            Text("La selección de huéspedes es orientativa. Confirma precio y disponibilidad en Airbnb.", modifier = Modifier.padding(top = 12.dp), color = Muted, fontSize = 12.sp)
         }
     }, shape = RoundedCornerShape(24.dp), containerColor = Color.White)
 }
 
 @Composable
-private fun PlaceholderPage(title: String, message: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier) {
+private fun PlaceholderPage(
+    title: String,
+    message: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier = Modifier,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null
+) {
     Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
             Icon(icon, null, tint = Coral, modifier = Modifier.size(46.dp))
             Spacer(Modifier.height(14.dp))
             Text(title, fontWeight = FontWeight.Bold, fontSize = 21.sp, color = Ink)
-            Text(message, color = Muted, fontSize = 14.sp)
+            Text(message, color = Muted, fontSize = 14.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            if (actionLabel != null && onAction != null) {
+                Spacer(Modifier.height(18.dp))
+                OutlinedButton(onClick = onAction) { Text(actionLabel) }
+            }
         }
     }
+}
+
+private class GuestFavoritesDb(context: Context) : SQLiteOpenHelper(context, "estadia-local.db", null, 1) {
+    override fun onCreate(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE guest_favorites (stay_id INTEGER PRIMARY KEY NOT NULL)")
+    }
+
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+
+    fun readFavorites(): Set<Int> = readableDatabase.rawQuery("SELECT stay_id FROM guest_favorites", null).use { cursor ->
+        buildSet { while (cursor.moveToNext()) add(cursor.getInt(0)) }
+    }
+
+    fun setFavorite(stayId: Int, saved: Boolean) {
+        if (saved) writableDatabase.execSQL("INSERT OR IGNORE INTO guest_favorites(stay_id) VALUES (?)", arrayOf(stayId))
+        else writableDatabase.delete("guest_favorites", "stay_id = ?", arrayOf(stayId.toString()))
+    }
+}
+
+private fun openExternalUrl(context: Context, value: String) {
+    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(value)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+}
+
+private fun openAirbnbSearch(context: Context, query: String, guests: Int? = null) {
+    val uri = Uri.parse("https://www.airbnb.com/s/${Uri.encode(query)}/homes")
+        .buildUpon()
+        .apply { if (guests != null) appendQueryParameter("adults", guests.coerceAtLeast(1).toString()) }
+        .build()
+    context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+}
+
+private fun openAirbnbTrips(context: Context) {
+    val uri = Uri.parse("https://www.airbnb.com/trips")
+    context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }
 
 private fun categoryIcon(category: String) = when (category) {

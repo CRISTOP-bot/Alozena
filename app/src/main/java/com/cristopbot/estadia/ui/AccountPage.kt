@@ -41,6 +41,7 @@ fun AccountPage(
     backendReady: Boolean,
     statusMessage: String? = null,
     isLoading: Boolean = false,
+    onOpenTerms: () -> Unit = {},
     onSignIn: () -> Unit,
     onSignOut: () -> Unit
 ) {
@@ -96,6 +97,8 @@ fun AccountPage(
                     }
                     else -> Text("El inicio de sesión estará disponible cuando Firebase esté configurado en esta instalación.", color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center)
                 }
+                Spacer(Modifier.height(10.dp))
+                TextButton(onClick = onOpenTerms) { Text("Términos y privacidad", color = Coral) }
             }
         }
         statusMessage?.let {
