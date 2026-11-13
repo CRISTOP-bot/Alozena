@@ -42,7 +42,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Run Firestore security rules tests
+      - name: Run Firestore and Storage security rules tests
         working-directory: firebase-tests
         run: npm test
       - name: Restore JDK 17 for Android build

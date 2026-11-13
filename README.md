@@ -1,49 +1,35 @@
 # Alozena 🏡
 
-App Android nativa Alozena en Kotlin y Jetpack Compose para explorar alojamientos, buscar destinos, filtrar categorías y guardar favoritos.
+Alozena es una app Android nativa en Kotlin y Jetpack Compose para publicar alojamientos y solicitar estancias dentro de la propia plataforma.
 
-> **Estado:** el repositorio incluye cliente Firebase/Firestore y reglas, y el CI prueba las reglas con el emulador y genera un APK. El JSON compartido identifica el proyecto `estadia-37fbf` y la app Android `com.cristopbot.estadia`; por sí solo no demuestra que Authentication o Firestore estén activados/desplegados. Los alojamientos de muestra siguen siendo datos locales. El nombre visible y la interfaz son Alozena. La app no procesa pagos ni confirma reservas.
+## Estado real
+
+- El catálogo inicial está vacío: no hay anuncios precargados.
+- Solo aparecen publicaciones guardadas en Firestore por un usuario anfitrión autenticado.
+- La publicación pide título, ubicación, tipo, precio por noche, cargo de limpieza, depósito de seguridad, capacidad, camas, descripción y una foto elegida del dispositivo; la foto se sube a Firebase Storage con ruta por UID. Firestore guarda la publicación ligada al UID y marcada `source=host_submitted`. El anfitrión declara que la información es cierta; Alozena no verifica físicamente la propiedad.
+- Las solicitudes de estancia se guardan en Alozena con fechas, huéspedes, título/precio al momento de pedir y estado pendiente. El anfitrión puede confirmar/rechazar y el huésped cancelar dentro de Alozena; no se procesa ningún pago.
+- Alozena aún no tiene flujo de reseñas/calificaciones, así que las calificaciones están desactivadas y no aparecen estrellas.
+- Favoritos de invitado: SQLite local. Favoritos de cuenta: Firebase privado por UID.
 
 ## Firebase
 
-La integración de cliente incluye lectura del catálogo publicado, favoritos por usuario y acceso con Google (Credential Manager → Firebase Authentication). La primera apertura presenta bienvenida y consentimiento; permite iniciar sesión o explorar como invitado. Los favoritos de invitado se guardan localmente en SQLite; los usuarios con sesión usan sus favoritos de Firebase. El detalle distingue claramente catálogo de demostración de anuncios reales, y abre Airbnb para revisar disponibilidad y reseñas actuales. Alozena no importa ni replica anuncios de Airbnb.
+El cliente usa Google Credential Manager y Firebase Authentication. Firestore aloja `stays`, `users/{uid}/favorites` y `bookings`; Firebase Storage recibe fotos elegidas dentro de la app, en rutas asociadas al UID del anfitrión. Las reglas limitan publicación, edición y solicitudes. La autenticación confirma la cuenta, no la existencia física de un alojamiento. Las solicitudes guardan el título y precio copiados del anuncio en el momento de enviarse y pueden ser canceladas por el huésped o confirmadas/rechazadas por su anfitrión dentro de Alozena.
 
-Airbnb no ofrece acceso irrestricto a su API de alojamientos: la integración oficial está sujeta a un programa de socios, permisos y revisión de seguridad. La búsqueda externa no es una API ni una sincronización de datos. No se inventan reseñas. Alozena es un proyecto independiente, no afiliado a Airbnb.
+El `applicationId` y namespace técnico `com.cristopbot.estadia` se conservan para no romper Firebase ni instalaciones existentes. El nombre visible, Gradle, repositorio y launcher son Alozena.
 
-1. En Firebase Console, activa Authentication → Google y crea Cloud Firestore en el proyecto `estadia-37fbf`.
-2. Registra las huellas SHA-1 y SHA-256 del certificado Android para Google Sign-In; puedes obtenerlas en los logs del job mediante `gradle signingReport`.
-3. Descarga `google-services.json` después de configurar OAuth y guarda su contenido como secreto del repositorio `FIREBASE_ANDROID_CONFIG`. No subas el archivo al repositorio.
-4. Despliega `firestore.rules` y `firestore.indexes.json` con Firebase CLI autenticado: `firebase use estadia-37fbf` y `firebase deploy --only firestore:rules,firestore:indexes`.
-5. No publiques anuncios de demostración como alojamientos reales. Comprueba permisos de fotos, datos y precios antes de importar anuncios autorizados.
+## Seguridad y honestidad de datos
 
-El CI comprueba compilación y tests de reglas en el emulador; no verifica un inicio de sesión real ni confirma por sí solo el estado del proyecto Firebase remoto. Para usar Google, Authentication → Google debe estar habilitado y el `google-services.json` del build debe incluir el cliente OAuth web y la huella SHA-1 de su certificado. Los términos integrados son un borrador de transparencia para una app de demostración, no asesoría legal; antes de distribución pública/comercial deben revisarlos un adulto responsable y asesoría adecuada.
+No se importan catálogos de terceros, no se raspan páginas, no se usan anuncios, fotos, precios o reseñas ajenos sin autorización y no se presentan datos inventados como reales. Antes de publicar, el anfitrión declara que tiene derecho a usar las fotos y que los datos son ciertos; esa declaración no es una verificación física de Alozena. Las reseñas/calificaciones están deshabilitadas, así que el cliente no muestra estrellas ficticias. No hay flujo de pagos y las solicitudes no bloquean inventario ni representan confirmación de hospedaje.
 
-Más detalles en `firebase/README.md`.
+## CI
 
-## Datos y seguridad
-
-- `stays/{stayId}`: alojamientos publicados (`published=true`).
-- `users/{uid}/favorites/{stayId}`: favoritos privados por cuenta.
-- `bookings/{bookingId}`: reglas contempladas para solicitudes autenticadas; la interfaz aún no ofrece el flujo completo para crearlas.
-
-Las pruebas emuladas no despliegan reglas en producción. Nunca guardes claves de cuenta de servicio en la app, el APK, el repositorio o secretos usados por la compilación Android.
-
-## Build y CI
-
-Android usa Gradle 8.9 y JDK 17. GitHub Actions ejecuta pruebas de reglas Firestore en el emulador, tests unitarios, `assembleDebug` y `signingReport`. Los builds de `main` usan la configuración Firebase del secreto `FIREBASE_ANDROID_CONFIG`; el archivo se materializa solo durante el build y está excluido por `.gitignore`.
-
-
-## Privacidad, catálogo y seguridad
-
-- La bienvenida incluye consentimiento visible para las condiciones de uso y el resumen de privacidad; no es asesoría legal.
-- Los favoritos de invitado se guardan en SQLite en el dispositivo. Los favoritos con sesión iniciada se sincronizan con Firebase; se mantiene copia local del uso de invitado.
-- El catálogo interno es demostrativo, con descripciones y calificaciones ilustrativas. No presenta reseñas inventadas como auténticas; abre Airbnb para consultar anuncios/reseñas actuales.
-- Airbnb limita su API oficial a programas de socios y permisos aprobados. No se extraen páginas ni se clona su inventario.
-- El manifiesto Android de la app declara únicamente permiso de Internet; la app no pide SMS, accesibilidad, lectura de notificaciones ni control del dispositivo. No se intenta ocultar ni evadir Play Protect. Si muestra una alerta, conserva el texto exacto, analiza el APK y usa la apelación oficial de Google cuando proceda.
+GitHub Actions ejecuta las pruebas de reglas Firestore, tests unitarios, `assembleDebug` y `signingReport`. Los builds de `main` publican el APK generado por ese commit. El CI prueba reglas en emuladores, pero no despliega reglas ni habilita Firebase Storage en la consola remota. Antes del primer uso, verifica que Storage esté habilitado en el proyecto y despliega `firestore.rules`, `firestore.indexes.json` y `storage.rules`. En este cambio no se inspeccionó ni se modificó la configuración Firebase remota.
 
 Creado por un niño de 12 años BTW
 
 
-La marca visible y el nombre Gradle son Alozena. El `applicationId` y namespace `com.cristopbot.estadia` se conservan deliberadamente para mantener Firebase Authentication, Firestore y la posibilidad de actualizar la aplicación existente. Los SVG antiguos se reemplazaron por identidad Alozena en azul.
+**Transparencia:** hoy Alozena no incluye un panel de moderación ni puede verificar por sí sola la existencia física de cada propiedad. La declaración del anfitrión y la autenticación no equivalen a verificación independiente; por eso el README no presenta la oferta como verificada por Alozena.
 
-Los recursos SVG originales de Estadía se sustituyeron por tres variantes de identidad Alozena en `assets/branding/alozena-*`.
+## Despliegue de reglas
+
+En tu proyecto Firebase, ejecuta `firebase deploy --only firestore:rules,firestore:indexes,storage` con Firebase CLI autenticado. El CI de este repositorio ejecuta emuladores locales y no modifica reglas remotas.

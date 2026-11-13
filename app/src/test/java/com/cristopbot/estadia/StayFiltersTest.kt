@@ -4,27 +4,22 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class StayFiltersTest {
-    @Test fun filtersByCityWithoutCaseSensitivity() {
-        assertEquals(listOf("Loft con vista al mar"), StayFilters.filter(StayCatalog.stays, "PUERTO ESCONDIDO", "Todo", false, emptySet()).map { it.title })
+    private val listings = listOf(
+        Stay(1, "Casa del Lago", "Valle de Bravo", "Casa", 1800, 0, "Sin reseñas", "https://photo.invalid/casa", "", "Descripción del anfitrión", 2, 4, "id-casa", "host-1"),
+        Stay(2, "Loft Centro", "Oaxaca", "Departamento", 1200, 0, "Sin reseñas", "https://photo.invalid/loft", "", "Descripción del anfitrión", 1, 2, "id-loft", "host-2")
+    )
+
+    @Test fun liveCatalogHasNoPreloadedHomes() {
+        assertEquals(emptyList<Stay>(), StayCatalog.stays)
     }
 
-    @Test fun searchIgnoresAccentsAndSurroundingWhitespace() {
-        assertEquals(listOf("Departamento luminoso"), StayFilters.filter(StayCatalog.stays, "  ciudad de mexico  ", "Todo", false, emptySet()).map { it.title })
+    @Test fun filtersPublishedItemsByCityAndAccentNormalization() {
+        assertEquals(listOf("Casa del Lago"), StayFilters.filter(listings, " valle DE bravo ", "Todo", false, emptySet()).map { it.title })
+        assertEquals(listOf("Loft Centro"), StayFilters.filter(listings, "oaxaca", "Todo", false, emptySet()).map { it.title })
     }
 
-    @Test fun searchesTitlesAndDestinations() {
-        assertEquals(listOf("Casa colorida en el centro"), StayFilters.filter(StayCatalog.stays, "colorida", "Todo", false, emptySet()).map { it.title })
-    }
-
-    @Test fun combinesCategoryAndFavorites() {
-        assertEquals(listOf("Casa entre árboles"), StayFilters.filter(StayCatalog.stays, "", "Cabañas", true, setOf(1)).map { it.title })
-    }
-
-    @Test fun emptyFavoritesShowNoResults() {
-        assertEquals(emptyList<Stay>(), StayFilters.filter(StayCatalog.stays, "", "Todo", true, emptySet()))
-    }
-
-    @Test fun noMatchReturnsEmptyList() {
-        assertEquals(emptyList<Stay>(), StayFilters.filter(StayCatalog.stays, "Tokio", "Todo", false, emptySet()))
+    @Test fun filtersByTypeAndFavoriteSet() {
+        assertEquals(listOf("Casa del Lago"), StayFilters.filter(listings, "", "Casa", true, setOf(1)).map { it.title })
+        assertEquals(emptyList<Stay>(), StayFilters.filter(listings, "", "Todo", true, emptySet()))
     }
 }

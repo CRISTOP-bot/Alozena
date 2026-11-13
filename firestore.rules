@@ -2,22 +2,25 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
-    function isHost(stayId) {
-      return signedIn() && get(/databases/$(database)/documents/stays/$(stayId)).data.hostUid == request.auth.uid;
+    function ownStay(stayId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/stays/$(stayId))
+        && get(/databases/$(database)/documents/stays/$(stayId)).data.hostUid == request.auth.uid;
     }
-    function validDate(value) { return value is timestamp; }
-    function validDateOrder() { return request.resource.data.checkIn < request.resource.data.checkOut; }
     function validBookingCreate() {
       let stayPath = /databases/$(database)/documents/stays/$(request.resource.data.stayId);
-      return request.resource.data.keys().hasOnly(['guestUid', 'stayId', 'checkIn', 'checkOut', 'guests', 'status', 'createdAt'])
-        && request.resource.data.keys().hasAll(['guestUid', 'stayId', 'checkIn', 'checkOut', 'guests', 'status', 'createdAt'])
+      return request.resource.data.keys().hasOnly(['guestUid', 'stayId', 'hostUid', 'stayTitle', 'nightlyPrice', 'checkIn', 'checkOut', 'guests', 'status', 'createdAt'])
+        && request.resource.data.keys().hasAll(['guestUid', 'stayId', 'hostUid', 'stayTitle', 'nightlyPrice', 'checkIn', 'checkOut', 'guests', 'status', 'createdAt'])
         && request.resource.data.guestUid == request.auth.uid
         && request.resource.data.stayId is string
+        && request.resource.data.hostUid == get(stayPath).data.hostUid
+        && request.resource.data.stayTitle is string
+        && request.resource.data.nightlyPrice is int && request.resource.data.nightlyPrice > 0
         && request.resource.data.status == 'requested'
         && request.resource.data.createdAt == request.time
-        && validDate(request.resource.data.checkIn)
-        && validDate(request.resource.data.checkOut)
-        && validDateOrder()
+        && request.resource.data.checkIn is timestamp
+        && request.resource.data.checkOut is timestamp
+        && request.resource.data.checkIn < request.resource.data.checkOut
         && request.resource.data.guests is int && request.resource.data.guests > 0
         && exists(stayPath) && get(stayPath).data.published == true
         && request.resource.data.guests <= get(stayPath).data.maxGuests;
@@ -28,23 +31,43 @@ service cloud.firestore {
         && request.resource.data.status == 'cancelled'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
     }
+    function validHostResponse() {
+      return resource.data.hostUid == request.auth.uid
+        && resource.data.status == 'requested'
+        && request.resource.data.status in ['accepted', 'declined']
+        && request.resource.data.hostRespondedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'hostRespondedAt']);
+    }
 
     match /stays/{stayId} {
       allow read: if resource.data.published == true || (signedIn() && resource.data.hostUid == request.auth.uid);
       allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['title', 'location', 'category', 'pricePerNight', 'cleaningFee', 'securityDeposit', 'maxGuests', 'beds', 'description', 'coverImageUrl', 'searchTokens', 'source', 'hostUid', 'hostDisplayName', 'published', 'moderationStatus', 'createdAt', 'reviewCount'])
+        && request.resource.data.keys().hasAll(['title', 'location', 'category', 'pricePerNight', 'cleaningFee', 'securityDeposit', 'maxGuests', 'beds', 'description', 'coverImageUrl', 'searchTokens', 'source', 'hostUid', 'hostDisplayName', 'published', 'moderationStatus', 'createdAt', 'reviewCount'])
         && request.resource.data.hostUid == request.auth.uid
-        && request.resource.data.title is string
-        && request.resource.data.location is string
-        && request.resource.data.category is string
-        && request.resource.data.pricePerNight is int
-        && request.resource.data.pricePerNight > 0
-        && request.resource.data.maxGuests is int
-        && request.resource.data.maxGuests > 0
-        && request.resource.data.published == false;
+        && request.resource.data.hostDisplayName is string
+        && request.resource.data.title is string && request.resource.data.title.size() >= 5 && request.resource.data.title.size() <= 90
+        && request.resource.data.location is string && request.resource.data.location.size() >= 3 && request.resource.data.location.size() <= 120
+        && request.resource.data.category in ['Casa', 'Departamento', 'Cabaña', 'Habitación', 'Otro']
+        && request.resource.data.pricePerNight is int && request.resource.data.pricePerNight > 0 && request.resource.data.pricePerNight <= 10000000
+        && request.resource.data.cleaningFee is int && request.resource.data.cleaningFee >= 0 && request.resource.data.cleaningFee <= 10000000
+        && request.resource.data.securityDeposit is int && request.resource.data.securityDeposit >= 0 && request.resource.data.securityDeposit <= 10000000
+        && request.resource.data.maxGuests is int && request.resource.data.maxGuests > 0 && request.resource.data.maxGuests <= 30
+        && request.resource.data.beds is int && request.resource.data.beds >= 0 && request.resource.data.beds <= 30
+        && request.resource.data.description is string && request.resource.data.description.size() >= 20 && request.resource.data.description.size() <= 2000
+        && request.resource.data.coverImageUrl is string && request.resource.data.coverImageUrl.matches('https://.*')
+        && request.resource.data.source == 'host_submitted'
+        && request.resource.data.searchTokens is list
+        && request.resource.data.published == true
+        && request.resource.data.moderationStatus == 'host_attested'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.reviewCount == 0;
       allow update: if signedIn() && resource.data.hostUid == request.auth.uid
         && request.resource.data.hostUid == resource.data.hostUid
-        && request.resource.data.published == resource.data.published;
-      allow delete: if signedIn() && resource.data.hostUid == request.auth.uid && resource.data.published == false;
+        && request.resource.data.published == resource.data.published
+        && request.resource.data.moderationStatus == resource.data.moderationStatus
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'location', 'category', 'pricePerNight', 'cleaningFee', 'securityDeposit', 'maxGuests', 'beds', 'description', 'coverImageUrl', 'searchTokens']);
+      allow delete: if signedIn() && resource.data.hostUid == request.auth.uid;
     }
 
     match /users/{uid} {
@@ -68,9 +91,9 @@ service cloud.firestore {
 
     match /bookings/{bookingId} {
       allow create: if signedIn() && validBookingCreate();
-      allow list: if signedIn() && resource.data.guestUid == request.auth.uid;
-      allow get: if signedIn() && (resource.data.guestUid == request.auth.uid || isHost(resource.data.stayId));
-      allow update: if signedIn() && validBookingCancellation();
+      allow list: if signedIn() && (resource.data.guestUid == request.auth.uid || resource.data.hostUid == request.auth.uid);
+      allow get: if signedIn() && (resource.data.guestUid == request.auth.uid || ownStay(resource.data.stayId));
+      allow update: if signedIn() && (validBookingCancellation() || validHostResponse());
       allow delete: if false;
     }
 
