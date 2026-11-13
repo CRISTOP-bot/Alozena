@@ -71,6 +71,7 @@ private val Coral = Color(0xFF2463D3)
 private val Ink = Color(0xFF152238)
 private val Muted = Color(0xFF65758B)
 private val Soft = Color(0xFFF1F5FB)
+private val BlueForUi = Color(0xFF2463D3)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -96,6 +97,7 @@ private fun AlozenaApp() {
     var hasCompletedWelcome by remember { mutableStateOf(preferences.getBoolean("welcome_completed", false)) }
     var hasAcceptedTerms by remember { mutableStateOf(preferences.getBoolean("terms_accepted_v1", false)) }
     var showTermsDialog by remember { mutableStateOf(false) }
+    var showHelpDialog by remember { mutableStateOf(false) }
     val localFavoritesDb = remember(context) { GuestFavoritesDb(context) }
     var signInInProgress by remember { mutableStateOf(false) }
     LaunchedEffect(localFavoritesDb) { favorites = withContext(Dispatchers.IO) { localFavoritesDb.readFavorites() } }
@@ -227,8 +229,8 @@ private fun AlozenaApp() {
             text = {
                 Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
                     Text("Alozena es una app independiente para descubrir alojamientos. No está afiliada ni respaldada por Airbnb. No vende ni reserva alojamientos.", fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(10.dp))
-            TextButton(onClick = { openExternalUrl(context, "https://www.airbnb.com/terms") }) { Text("Consultar términos de Airbnb") }
+                    Spacer(Modifier.height(10.dp))
+                    TextButton(onClick = { openExternalUrl(context, "https://www.airbnb.com/terms") }) { Text("Consultar términos de Airbnb") }
                     Spacer(Modifier.height(10.dp))
                     Text("Catálogo: los alojamientos, precios, calificaciones y descripciones mostrados dentro de Alozena son demostrativos y no son ofertas verificadas ni reseñas de huéspedes reales. Para anuncios y opiniones actuales, abre la búsqueda oficial de Airbnb desde la app.")
                     Spacer(Modifier.height(10.dp))
@@ -291,6 +293,9 @@ private fun AlozenaApp() {
                 statusMessage = accountMessage,
                 isLoading = signInInProgress,
                 onOpenTerms = { showTermsDialog = true },
+                onOpenFavorites = { selectedTab = 1 },
+                onOpenTrips = { openAirbnbTrips(context) },
+                onOpenHelp = { showHelpDialog = true },
                 onSignIn = ::startGoogleSignIn,
                 onSignOut = {
                     firebaseAuth?.signOut()
@@ -301,41 +306,52 @@ private fun AlozenaApp() {
                 }
             )
             else -> {
-                Column(Modifier.fillMaxSize().padding(padding)) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentPadding = PaddingValues(bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     if (isFavoritesPage) {
-                        Row(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 20.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Favorite, null, tint = Coral, modifier = Modifier.size(24.dp))
-                            Text("Favoritos", Modifier.weight(1f).padding(start = 10.dp), color = Ink, fontWeight = FontWeight.Bold, fontSize = 21.sp)
-                            IconButton(onClick = { showTermsDialog = true }) { Icon(Icons.Default.Settings, "Privacidad y términos", tint = Ink) }
+                        item {
+                            Row(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 20.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Favorite, null, tint = Coral, modifier = Modifier.size(24.dp))
+                                Text("Favoritos", Modifier.weight(1f).padding(start = 10.dp), color = Ink, fontWeight = FontWeight.Bold, fontSize = 21.sp)
+                                IconButton(onClick = { showTermsDialog = true }) { Icon(Icons.Default.Settings, "Privacidad y términos", tint = Ink) }
+                            }
                         }
                     } else {
-                        AlozenaHomeHeader(
-                            query = query,
-                            onQuery = { query = it },
-                            onOpenTerms = { showTermsDialog = true },
-                            onCategory = { selected -> category = when (selected) { "Hoteles" -> "Ciudades"; "Casas" -> "Casas"; "Departamentos" -> "Ciudades"; "Resorts" -> "Frente al mar"; else -> "Todo" } },
-                            onDestination = { destination -> query = destination },
-                            onOpenAirbnb = { if (query.isNotBlank()) openAirbnbSearch(context, query) else openAirbnbSearch(context, "México") }
-                        )
-                    }
-                    backendMessage?.let { Text(it, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
-                    if (query.isNotBlank()) {
-                        OutlinedButton(onClick = { openAirbnbSearch(context, query) }, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp).fillMaxWidth()) { Text("Buscar alojamientos en Airbnb") }
-                    }
-                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { showFilters = true }, shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 13.dp, vertical = 7.dp)) {
-                            Icon(Icons.Default.Tune, null, modifier = Modifier.size(16.dp)); Text(" Filtros", fontSize = 12.sp)
+                        item {
+                            AlozenaHomeHeader(
+                                query = query,
+                                onQuery = { query = it },
+                                onOpenTerms = { showTermsDialog = true },
+                                onCategory = { selected -> category = when (selected) { "Hoteles" -> "Ciudades"; "Casas" -> "Casas"; "Departamentos" -> "Ciudades"; "Resorts" -> "Frente al mar"; else -> "Todo" } },
+                                onDestination = { destination -> query = destination },
+                                onOpenAirbnb = { if (query.isNotBlank()) openAirbnbSearch(context, query) else openAirbnbSearch(context, "México") }
+                            )
                         }
-                        OutlinedButton(onClick = { category = "Todo" }, shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 13.dp, vertical = 7.dp)) { Text("Categoría · ${if (category == "Todo") "Todas" else category}", fontSize = 12.sp) }
                     }
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (isFavoritesPage) "Tus favoritos" else "Lugares para descubrir", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 19.sp, color = Ink)
-                        Text("${results.size} ejemplos", color = Muted, fontSize = 12.sp)
+                    backendMessage?.let { message -> item { Text(message, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) } }
+                    if (query.isNotBlank()) {
+                        item { OutlinedButton(onClick = { openAirbnbSearch(context, query) }, modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth()) { Text("Buscar alojamientos en Airbnb") } }
                     }
-                    HorizontalDivider(color = Color(0xFFF0F0F0))
+                    item {
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { showFilters = true }, shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 13.dp, vertical = 7.dp)) {
+                                Icon(Icons.Default.Tune, null, modifier = Modifier.size(16.dp)); Text(" Filtros", fontSize = 12.sp)
+                            }
+                            OutlinedButton(onClick = { category = "Todo" }, shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 13.dp, vertical = 7.dp)) { Text("Categoría · ${if (category == "Todo") "Todas" else category}", fontSize = 12.sp) }
+                        }
+                    }
+                    item {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (isFavoritesPage) "Tus favoritos" else "Lugares para descubrir", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 19.sp, color = Ink)
+                            Text("${results.size} ejemplos", color = Muted, fontSize = 12.sp)
+                        }
+                    }
                     if (results.isEmpty()) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        item {
+                            Column(Modifier.fillMaxWidth().padding(vertical = 54.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(if (isFavoritesPage) Icons.Default.FavoriteBorder else Icons.Default.Search, null, tint = Muted, modifier = Modifier.size(42.dp))
                                 Spacer(Modifier.height(12.dp))
                                 Text(if (isFavoritesPage) "Aún no tienes favoritos" else "No encontramos alojamientos", fontWeight = FontWeight.SemiBold, color = Ink)
@@ -343,12 +359,14 @@ private fun AlozenaApp() {
                             }
                         }
                     } else {
-                        LazyColumn(contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                            items(results, key = { it.id }) { stay ->
-                                StayCard(stay, isFavorite = stay.id in effectiveFavorites,
-                                    onFavorite = { toggleFavorite(stay) },
-                                    onClick = { selectedStay = stay })
-                            }
+                        items(results, key = { it.id }) { stay ->
+                            StayCard(
+                                stay = stay,
+                                isFavorite = stay.id in effectiveFavorites,
+                                onFavorite = { toggleFavorite(stay) },
+                                onClick = { selectedStay = stay },
+                                modifier = Modifier.padding(horizontal = 20.dp)
+                            )
                         }
                     }
                 }
@@ -356,6 +374,14 @@ private fun AlozenaApp() {
         }
     }
     selectedStay?.let { stay -> StayDetails(stay = stay, onClose = { selectedStay = null }) }
+    if (showHelpDialog) {
+        AlertDialog(
+            onDismissRequest = { showHelpDialog = false },
+            title = { Text("Ayuda de Alozena") },
+            text = { Text("Alozena presenta ejemplos de alojamientos y te ayuda a abrir búsquedas oficiales. No confirma disponibilidad, no reserva ni procesa pagos. Las descripciones y calificaciones de ejemplo no son reseñas reales.") },
+            confirmButton = { TextButton(onClick = { showHelpDialog = false }) { Text("Entendido") } }
+        )
+    }
     if (showFilters) CategoryFilterDialog(categories = categoryFilters, selected = category, onSelect = { category = it; showFilters = false }, onDismiss = { showFilters = false })
 }
 
@@ -511,46 +537,6 @@ private fun AlozenaHomeHeader(
     }
 }
 
-@Composable
-private fun SearchHeader(query: String, onQuery: (String) -> Unit, onFilters: () -> Unit) {
-    val focusRequester = remember { FocusRequester() }
-    val focusManager = LocalFocusManager.current
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 10.dp)
-            .height(64.dp)
-            .clip(RoundedCornerShape(32.dp))
-            .background(Color.White)
-            .clickable { focusRequester.requestFocus() },
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(Icons.Default.Search, null, tint = Ink, modifier = Modifier.padding(start = 16.dp).size(23.dp))
-        Column(Modifier.weight(1f).padding(start = 12.dp)) {
-            Text("¿A dónde quieres ir?", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Ink)
-            Spacer(Modifier.height(3.dp))
-            BasicTextField(
-                value = query,
-                onValueChange = onQuery,
-                modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
-                singleLine = true,
-                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp, color = Ink),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
-                decorationBox = { innerTextField ->
-                    Box {
-                        if (query.isEmpty()) Text("Busca destinos o alojamientos", fontSize = 12.sp, color = Muted, maxLines = 1)
-                        innerTextField()
-                    }
-                }
-            )
-        }
-        IconButton(onClick = onFilters, modifier = Modifier.padding(horizontal = 10.dp).size(38.dp).clip(CircleShape).background(Color.White)) {
-            Icon(Icons.Default.Tune, "Abrir filtros", tint = Ink, modifier = Modifier.size(20.dp))
-        }
-    }
-    HorizontalDivider(color = Color(0xFFF0F0F0))
-}
 
 @Composable
 private fun CategoryFilterDialog(categories: List<String>, selected: String, onSelect: (String) -> Unit, onDismiss: () -> Unit) {
@@ -577,8 +563,8 @@ private fun CategoryFilterDialog(categories: List<String>, selected: String, onS
 }
 
 @Composable
-private fun StayCard(stay: Stay, isFavorite: Boolean, onFavorite: () -> Unit, onClick: () -> Unit) {
-    Card(Modifier.fillMaxWidth().animateContentSize().clickable(onClick = onClick), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
+private fun StayCard(stay: Stay, isFavorite: Boolean, onFavorite: () -> Unit, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Card(modifier.fillMaxWidth().animateContentSize().clickable(onClick = onClick), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
         Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(112.dp, 106.dp)) {
                 AsyncImage(model = stay.image, contentDescription = stay.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(13.dp)))
@@ -605,37 +591,69 @@ private fun StayCard(stay: Stay, isFavorite: Boolean, onFavorite: () -> Unit, on
 private fun StayDetails(stay: Stay, onClose: () -> Unit) {
     val context = LocalContext.current
     var guests by remember { mutableIntStateOf(1) }
-    AlertDialog(onDismissRequest = onClose, confirmButton = {
-        Button(onClick = { openAirbnbSearch(context, stay.location, guests) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) { Text("Ver anuncios y reseñas reales en Airbnb") }
-    }, dismissButton = {
-        TextButton(onClick = onClose) { Text("Cerrar", color = Muted) }
-    }, title = {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stay.title, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Ink)
-            IconButton(onClick = onClose) { Icon(Icons.Default.Close, "Cerrar") }
-        }
-    }, text = {
-        Column(Modifier.fillMaxWidth().heightIn(max = 560.dp)) {
-            AsyncImage(model = stay.image, contentDescription = stay.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(14.dp)))
-            Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stay.location, modifier = Modifier.weight(1f), color = Muted, fontSize = 14.sp)
-                Icon(Icons.Default.Star, null, tint = Ink, modifier = Modifier.size(16.dp)); Text(" ${stay.rating}", color = Ink, fontSize = 14.sp)
+    androidx.compose.ui.window.Dialog(onDismissRequest = onClose) {
+        Column(
+            Modifier.fillMaxWidth().heightIn(max = 700.dp).clip(RoundedCornerShape(24.dp)).background(Color.White).verticalScroll(rememberScrollState())
+        ) {
+            Box(Modifier.fillMaxWidth().height(215.dp)) {
+                AsyncImage(model = stay.image, contentDescription = stay.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                IconButton(onClick = onClose, modifier = Modifier.align(Alignment.TopStart).padding(12.dp).background(Color.White, CircleShape)) {
+                    Icon(Icons.Default.ArrowBack, "Volver", tint = Ink)
+                }
+                IconButton(
+                    onClick = {
+                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, "${stay.title} · ${stay.location}. Ver alojamientos: https://www.airbnb.com/s/${Uri.encode(stay.location)}/homes")
+                        }
+                        context.startActivity(Intent.createChooser(sendIntent, "Compartir búsqueda"))
+                    },
+                    modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).background(Color.White, CircleShape)
+                ) { Icon(Icons.Default.Share, "Compartir búsqueda", tint = Ink) }
+                Text("Imagen ilustrativa", Modifier.align(Alignment.BottomStart).padding(12.dp).clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = .94f)).padding(horizontal = 10.dp, vertical = 6.dp), fontSize = 10.sp, color = Muted)
             }
-            Text("${stay.guests} huéspedes · ${stay.beds} camas", modifier = Modifier.padding(top = 8.dp), color = Muted, fontSize = 13.sp)
-            Text(stay.description, modifier = Modifier.padding(top = 14.dp), color = Ink, fontSize = 14.sp, lineHeight = 21.sp)
-            Text("Descripción de demostración · no es un anuncio real", modifier = Modifier.padding(top = 8.dp), color = Muted, fontSize = 11.sp)
-            Text("Calificación ilustrativa: ${stay.rating} · sin reseñas verificadas", modifier = Modifier.padding(top = 5.dp), color = Muted, fontSize = 11.sp)
-            Text("Reseñas reales: consulta el anuncio directamente en Airbnb. Alozena no inventa opiniones de huéspedes.", modifier = Modifier.padding(top = 5.dp), color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
-            HorizontalDivider(Modifier.padding(vertical = 14.dp), color = Color(0xFFEEEEEE))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { Text("Huéspedes", fontWeight = FontWeight.SemiBold, color = Ink); Text("Hasta ${stay.guests} personas", color = Muted, fontSize = 12.sp) }
-                IconButton(onClick = { if (guests > 1) guests-- }, enabled = guests > 1) { Icon(Icons.Default.RemoveCircleOutline, "Quitar huésped") }
-                Text("$guests", fontWeight = FontWeight.SemiBold)
-                IconButton(onClick = { if (guests < stay.guests) guests++ }, enabled = guests < stay.guests) { Icon(Icons.Default.AddCircleOutline, "Agregar huésped") }
+            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stay.title, Modifier.weight(1f), fontSize = 21.sp, fontWeight = FontWeight.Bold, color = Ink)
+                    Icon(Icons.Default.Star, null, tint = Color(0xFFFFB020), modifier = Modifier.size(17.dp))
+                    Text(stay.rating, color = Ink, fontWeight = FontWeight.SemiBold)
+                }
+                Text(stay.location, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
+                Text("${stay.guests} huéspedes · ${stay.beds} camas", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+                HorizontalDivider(Modifier.padding(vertical = 14.dp), color = Color(0xFFE9EDF3))
+                Text("Acerca de este lugar", color = Ink, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(stay.description, color = Muted, fontSize = 14.sp, lineHeight = 21.sp, modifier = Modifier.padding(top = 7.dp))
+                Text("Descripción de demostración; no corresponde a un anuncio real.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 7.dp))
+                HorizontalDivider(Modifier.padding(vertical = 14.dp), color = Color(0xFFE9EDF3))
+                Text("Servicios de ejemplo", color = Ink, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("Wi-Fi" to Icons.Default.Wifi, "Estacionamiento" to Icons.Default.DirectionsCar, "Alberca" to Icons.Default.Pool).forEach { (label, icon) ->
+                        Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(Color(0xFFF3F6FB)).padding(vertical = 12.dp, horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(icon, null, tint = BlueForUi, modifier = Modifier.size(20.dp))
+                            Text(label, color = Ink, fontSize = 10.sp, modifier = Modifier.padding(top = 5.dp), maxLines = 1)
+                        }
+                    }
+                }
+                Text("Servicios ilustrativos, sujetos a confirmación en el anuncio.", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 6.dp))
+                HorizontalDivider(Modifier.padding(vertical = 14.dp), color = Color(0xFFE9EDF3))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("$${formatPrice(stay.price)} MXN", color = Ink, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Text("por noche · precio demo", color = Muted, fontSize = 11.sp)
+                    }
+                    Text("Huéspedes", color = Muted, fontSize = 12.sp)
+                    IconButton(onClick = { if (guests > 1) guests-- }, enabled = guests > 1) { Icon(Icons.Default.RemoveCircleOutline, "Quitar huésped") }
+                    Text("$guests", fontWeight = FontWeight.Bold, color = Ink)
+                    IconButton(onClick = { if (guests < stay.guests) guests++ }, enabled = guests < stay.guests) { Icon(Icons.Default.AddCircleOutline, "Agregar huésped") }
+                }
+                Text("Calificación ilustrativa · no hay reseñas verificadas en Alozena. Consulta opiniones vigentes en Airbnb.", color = Muted, fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
+                Button(onClick = { openAirbnbSearch(context, stay.location, guests) }, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(14.dp)) {
+                    Icon(Icons.Default.Search, null, modifier = Modifier.size(19.dp)); Text("  Consultar disponibilidad en Airbnb")
+                }
+                Text("Alozena no reserva ni procesa pagos.", Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp, bottom = 4.dp), color = Muted, fontSize = 11.sp)
             }
-            Text("La selección de huéspedes es orientativa. Confirma precio y disponibilidad en Airbnb.", modifier = Modifier.padding(top = 12.dp), color = Muted, fontSize = 12.sp)
         }
-    }, shape = RoundedCornerShape(24.dp), containerColor = Color.White)
+    }
 }
 
 @Composable

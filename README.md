@@ -44,4 +44,4 @@ Android usa Gradle 8.9 y JDK 17. GitHub Actions ejecuta pruebas de reglas Firest
 Creado por un niño de 12 años BTW
 
 
-La marca visible y el nombre del proyecto Gradle son Alozena. El applicationId Android y el namespace técnico se conservan para no romper Firebase, las instalaciones existentes ni el mecanismo de actualización.
+La marca visible y el nombre Gradle son Alozena. El `applicationId` y namespace `com.cristopbot.estadia` se conservan deliberadamente para mantener Firebase Authentication, Firestore y la posibilidad de actualizar la aplicación existente. Los SVG antiguos se reemplazaron por identidad Alozena en azul.
