@@ -19,6 +19,9 @@ import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PersonOutline
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Logout
@@ -27,6 +30,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -44,12 +48,16 @@ private val Blue = Color(0xFF2463D3)
 private val Ink = Color(0xFF152238)
 private val Muted = Color(0xFF65758B)
 
+enum class AccountMessageKind { Success, Neutral, Error }
+
 @Composable
 fun AccountPage(
     modifier: Modifier = Modifier,
     userEmail: String?,
     backendReady: Boolean,
     statusMessage: String? = null,
+    statusKind: AccountMessageKind = AccountMessageKind.Error,
+    onDismissMessage: () -> Unit = {},
     isLoading: Boolean = false,
     onOpenTerms: () -> Unit = {},
     onOpenFavorites: () -> Unit = {},
@@ -104,9 +112,31 @@ fun AccountPage(
                 if (userEmail != null) ProfileAction(Icons.Default.Logout, "Cerrar sesión", "Desconectar esta cuenta", onSignOut)
             }
         }
-        statusMessage?.let {
-            Spacer(Modifier.height(12.dp))
-            Text(it, color = if (it.startsWith("Sesión iniciada")) Color(0xFF237A57) else Color(0xFFB3261E), fontSize = 13.sp, textAlign = TextAlign.Center)
+        statusMessage?.let { message ->
+            val (background, foreground, icon) = when (statusKind) {
+                AccountMessageKind.Success -> Triple(Color(0xFFEAF6EF), Color(0xFF237A57), Icons.Default.CheckCircle)
+                AccountMessageKind.Neutral -> Triple(Color(0xFFEFF4FB), Color(0xFF40546D), Icons.Default.HelpOutline)
+                AccountMessageKind.Error -> Triple(Color(0xFFFFF3F1), Color(0xFF9D3933), Icons.Default.ErrorOutline)
+            }
+            Card(
+                Modifier.fillMaxWidth().padding(top = 12.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = background),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(icon, contentDescription = null, tint = foreground, modifier = Modifier.size(19.dp))
+                    Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                        Text(message, color = foreground, fontSize = 12.sp, lineHeight = 17.sp)
+                        if (statusKind == AccountMessageKind.Error && userEmail == null && backendReady) {
+                            TextButton(onClick = onSignIn, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp, vertical = 0.dp)) {
+                                Text("Intentar de nuevo", color = foreground, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                    IconButton(onClick = onDismissMessage) { Icon(Icons.Default.Close, contentDescription = "Descartar mensaje", tint = foreground) }
+                }
+            }
         }
     }
 }
