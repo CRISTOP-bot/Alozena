@@ -24,6 +24,12 @@ enum class CredentialFlowFailure { Cancelled, NoCredentials, Other }
 fun shouldFallbackToAccountChooser(failure: CredentialFlowFailure): Boolean =
     failure == CredentialFlowFailure.Cancelled || failure == CredentialFlowFailure.NoCredentials
 
+fun accountChooserResult(failure: CredentialFlowFailure): GoogleSignInResult = when (failure) {
+    CredentialFlowFailure.Cancelled -> GoogleSignInResult.Cancelled
+    CredentialFlowFailure.NoCredentials -> GoogleSignInResult.NoAccounts
+    CredentialFlowFailure.Other -> GoogleSignInResult.Failed
+}
+
 class GoogleSignInFlow {
     suspend fun requestIdToken(activity: Activity, serverClientId: String): GoogleSignInResult {
         val manager = CredentialManager.create(activity)
@@ -64,11 +70,11 @@ class GoogleSignInFlow {
         val response = try {
             manager.getCredential(activity, request)
         } catch (_: GetCredentialCancellationException) {
-            return GoogleSignInResult.Cancelled
+            return accountChooserResult(CredentialFlowFailure.Cancelled)
         } catch (_: NoCredentialException) {
-            return GoogleSignInResult.NoAccounts
+            return accountChooserResult(CredentialFlowFailure.NoCredentials)
         } catch (_: Exception) {
-            return GoogleSignInResult.Failed
+            return accountChooserResult(CredentialFlowFailure.Other)
         }
         return tokenFrom(response.credential)
     }
