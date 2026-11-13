@@ -4,9 +4,18 @@ local.properties
 **/build/
 .DS_Store
 
-# Firebase client config (contains project identifiers; never commit user-specific setup)
+# Firebase client config (contains project identifiers; never commit app config)
 google-services.json
 app/google-services.json
+# Local Firebase CLI selection may vary by developer; keep it local.
+.firebaserc
+# Never commit service-account credentials.
+*-service-account*.json
+service-account*.json
+firebase-adminsdk-*.json
+.firebase-token.json
+.env.firebase
+.env.local
 firebase-debug.log
 ui-debug.log
 .firebase/

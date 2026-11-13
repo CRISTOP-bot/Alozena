@@ -51,11 +51,36 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Configure Firebase Android app
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+        env:
+          FIREBASE_ANDROID_CONFIG: ${{ secrets.FIREBASE_ANDROID_CONFIG }}
+        run: |
+          test -n "$FIREBASE_ANDROID_CONFIG" || { echo "Missing FIREBASE_ANDROID_CONFIG repository secret" >&2; exit 1; }
+          printf '%s' "$FIREBASE_ANDROID_CONFIG" > app/google-services.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          config = json.loads(Path('app/google-services.json').read_text())
+          project = config.get('project_info', {}).get('project_id')
+          clients = config.get('client', [])
+          if project != 'estadia-37fbf':
+              raise SystemExit(f'Unexpected Firebase project ID: {project!r}')
+          if len(clients) != 1 or clients[0].get('client_info', {}).get('android_client_info', {}).get('package_name') != 'com.cristopbot.estadia':
+              raise SystemExit('Firebase config does not register Android package com.cristopbot.estadia')
+          oauth = clients[0].get('oauth_client', [])
+          print(f'Firebase config verified for {project}; OAuth clients configured: {len(oauth)}')
+          if not oauth:
+              print('::warning::No OAuth clients in google-services.json; Google sign-in will not work until Google provider/OAuth setup is completed and the file is refreshed.')
+          PY
+      - name: Use Firebase config on non-release branches when available
+        if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/v')
         env:
           FIREBASE_ANDROID_CONFIG: ${{ secrets.FIREBASE_ANDROID_CONFIG }}
         run: |
           if [ -n "$FIREBASE_ANDROID_CONFIG" ]; then
             printf '%s' "$FIREBASE_ANDROID_CONFIG" > app/google-services.json
+          else
+            echo 'Firebase configuration secret unavailable; building demo/disconnected variant.'
           fi
       - name: Run Android unit tests
         run: gradle testDebugUnitTest --no-daemon
