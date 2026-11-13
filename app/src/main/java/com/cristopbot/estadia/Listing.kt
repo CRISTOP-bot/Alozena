@@ -14,7 +14,8 @@ data class Stay(
     val badge: String,
     val description: String,
     val beds: Int,
-    val guests: Int
+    val guests: Int,
+    val firestoreId: String? = null
 )
 
 object StayCatalog {

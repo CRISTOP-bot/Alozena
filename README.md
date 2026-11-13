@@ -1,27 +1,29 @@
 # Estadía 🏡
 
-App Android nativa en Kotlin y Jetpack Compose para explorar alojamientos, buscar destinos, filtrar categorías y guardar favoritos.
+App Android nativa en Kotlin y Jetpack Compose para explorar alojamientos, buscar destinos y guardar favoritos.
 
-> **Estado del backend:** se añadió integración cliente con Firebase Authentication/Firestore, reglas de seguridad y esquema. La app aún usa datos locales de muestra hasta que se cree el proyecto Firebase, se añada `app/google-services.json`, se activen proveedores y se desplieguen las reglas. No se procesa pago ni se confirma disponibilidad/reserva.
+> **Backend:** el código de cliente para Firebase Authentication/Firestore y las reglas están versionados; sin un proyecto Firebase real la app conserva los datos locales de muestra. Solicitar en esta app una reserva sigue siendo una acción de demostración; no confirma disponibilidad, no cobra ni contacta anfitriones.
 
-## Estructura de datos Firestore
-- `stays/{stayId}`: catálogo de alojamientos publicados (`published=true`).
-- `users/{uid}`: perfil del usuario autenticado.
-- `users/{uid}/favorites/{stayId}`: favoritos privados por cuenta.
-- `bookings/{bookingId}`: solicitud autenticada en estado `requested`; no es una reserva confirmada.
+## Modelo Firestore
+- `stays/{stayId}`: catálogo curado; solo anuncios `published=true` se leen públicamente.
+- `users/{uid}`: perfil privado.
+- `users/{uid}/favorites/{stayId}`: favoritos privados y sincronizables.
+- `bookings/{bookingId}`: solicitud del huésped en estado `requested`; solo huésped y anfitrión pueden leerla.
 
-## Protección de datos
-`firestore.rules` restringe perfiles/favoritos al propietario, limita lecturas del catálogo a anuncios publicados, comprueba capacidad y formato de fecha en solicitudes y niega acceso por defecto. `firestore.indexes.json` contiene índices para consultas. No guardes credenciales de service account en el APK o en GitHub.
+Las reglas restringen perfiles y favoritos al propietario, validan campos/timestamps/capacidad de solicitudes, permiten cancelar solo al huésped y niegan todo lo demás por defecto. No existe proceso de pago ni disponibilidad transaccional; no usar como sistema de reservas real.
 
-## Activación en Firebase
-1. Abre [Firebase Console](https://console.firebase.google.com/) con tu cuenta Google; crea un proyecto nuevo para Estadía.
-2. Añade una app Android con el paquete `com.cristopbot.estadia`, descarga `google-services.json` y ponlo en `app/` localmente. Está excluido de Git por `.gitignore`; no lo publiques como archivo del repositorio.
-3. Habilita Google en Authentication y crea Cloud Firestore. Configura SHA-1/SHA-256 del certificado de Android para OAuth Google.
-4. Desde una máquina con Firebase CLI instalada y sesión autorizada en tu proyecto, ejecuta `firebase deploy --only firestore:rules,firestore:indexes`. Más contexto en `firebase/README.md`.
-5. Importa los documentos de ejemplo de `firebase/seed-stays.example.json` con `published:false`. Revisa que tienes derecho a usar cada alojamiento, foto y tarifa antes de publicarlos.
-6. Para los builds CI conectados, configura el proyecto Firebase como variables GitHub Actions `FIREBASE_PROJECT_ID`, `FIREBASE_PROJECT_NUMBER`, `FIREBASE_APPLICATION_ID` y el API key de app Android como secret `FIREBASE_API_KEY`; habilita solo después de revisar el proyecto/paquete. No se suben claves administrativas.
+## Activar Firebase (con tu cuenta Google)
+1. Entra a [Firebase Console](https://console.firebase.google.com/), crea un proyecto y registra Android con paquete `com.cristopbot.estadia`.
+2. Habilita Authentication → Google y Cloud Firestore; configura SHA-1 y SHA-256 del certificado para OAuth.
+3. Descarga `google-services.json` y ponlo en `app/` local. `.gitignore` lo excluye; **no lo subas al repositorio**.
+4. Publica las reglas/índices desde una terminal autorizada: `firebase deploy --only firestore:rules,firestore:indexes`.
+5. Importa `firebase/seed-stays.example.json` solo como datos de muestra, con `published:false`. Verifica licencia de fotos, permiso para cada anuncio y tarifas antes de publicar.
+6. Para compilaciones CI conectadas, configura `FIREBASE_PROJECT_ID`, `FIREBASE_PROJECT_NUMBER`, `FIREBASE_APPLICATION_ID`, `FIREBASE_API_KEY` y un paso seguro para proveer el archivo descargado de configuración; no uses claves de cuenta de servicio en una APK.
 
-La cuenta Google conectada a Zapia no crea automáticamente un proyecto Firebase ni autoriza cambios en Google Cloud. La base seguirá pendiente de esos pasos y no se afirma que ya esté desplegada.
+El cliente incorpora inicio de sesión Google con Credential Manager, búsqueda Firestore, favoritos sincronizables y consulta/cancelación de solicitudes. La creación de solicitudes desde la interfaz, flujo de anfitrión/publicación de inventario, fechas/disponibilidad concurrente, pagos, notificaciones y moderación siguen pendientes.
 
-## Build y CI
-Gradle 8.9 + JDK 17. El CI ejecuta unit tests y compila un APK de depuración. Las pruebas Firestore Rules Emulator aún están pendientes de añadir y ejecutar.
+## Pruebas
+- `gradle testDebugUnitTest assembleDebug` (JDK 17).
+- `npm test` desde `firebase-tests/` para probar reglas con Firestore Emulator (requiere Node y Java 21).
+
+GitHub Actions ejecuta las pruebas de reglas y el build Android antes de adjuntar APK a releases. La base remota no queda activa hasta que el propietario cree el proyecto y despliegue configuración/reglas.

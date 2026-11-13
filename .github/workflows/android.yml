@@ -30,7 +30,32 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Run unit tests
+      - name: Set up Node.js for Firestore rules tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Firebase emulator test dependencies
+        working-directory: firebase-tests
+        run: npm install --no-audit --no-fund
+      - name: Set up JDK 21 for Firebase CLI
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up JDK 17 for Android build
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Run Firestore security rules tests
+        working-directory: firebase-tests
+        run: npm test
+      - name: Set up JDK 17 for Android build
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Run Android unit tests
         run: gradle testDebugUnitTest --no-daemon
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
