@@ -45,3 +45,5 @@ Creado por un niño de 12 años BTW
 
 
 La marca visible y el nombre Gradle son Alozena. El `applicationId` y namespace `com.cristopbot.estadia` se conservan deliberadamente para mantener Firebase Authentication, Firestore y la posibilidad de actualizar la aplicación existente. Los SVG antiguos se reemplazaron por identidad Alozena en azul.
+
+Los recursos SVG originales de Estadía se sustituyeron por tres variantes de identidad Alozena en `assets/branding/alozena-*`.

@@ -50,9 +50,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -84,6 +81,8 @@ class MainActivity : ComponentActivity() {
 private fun AlozenaApp() {
     var query by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("Todo") }
+    var maxNightlyPrice by remember { mutableFloatStateOf(15000f) }
+    var minimumRating by remember { mutableFloatStateOf(0f) }
     var favorites by remember { mutableStateOf(setOf<Int>()) }
     var selectedTab by remember { mutableIntStateOf(0) }
     var selectedStay by remember { mutableStateOf<Stay?>(null) }
@@ -126,6 +125,7 @@ private fun AlozenaApp() {
         (remoteStays ?: emptyList()).filter { it.id.toString() in remoteFavoriteIds }.map { it.id }.toSet()
     } else favorites
     val results = StayFilters.filter(remoteStays ?: StayCatalog.stays, query, category, isFavoritesPage, effectiveFavorites)
+        .filter { it.price <= maxNightlyPrice.toInt() && runCatching { it.rating.toDouble() >= minimumRating.toDouble() }.getOrDefault(false) }
 
     LaunchedEffect(backendState, query, category) {
         if (backendState == BackendState.Ready) {
@@ -207,6 +207,18 @@ private fun AlozenaApp() {
         preferences.edit().putBoolean("welcome_completed", true).apply()
         hasCompletedWelcome = true
         accountMessage = null
+    }
+
+    fun clearFavorites() {
+        val savedIds = effectiveFavorites.toList()
+        favorites = emptySet()
+        scope.launch(Dispatchers.IO) { savedIds.forEach { localFavoritesDb.setFavorite(it, false) } }
+        if (backendState == BackendState.Ready && userEmail != null) {
+            scope.launch {
+                savedIds.forEach { id -> runCatching { EstadiaRepository.create(context).setFavorite(id.toString(), false) } }
+                remoteFavoriteIds = emptySet()
+            }
+        }
     }
 
     fun toggleFavorite(stay: Stay) {
@@ -316,7 +328,7 @@ private fun AlozenaApp() {
                             Row(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 20.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.Favorite, null, tint = Coral, modifier = Modifier.size(24.dp))
                                 Text("Favoritos", Modifier.weight(1f).padding(start = 10.dp), color = Ink, fontWeight = FontWeight.Bold, fontSize = 21.sp)
-                                IconButton(onClick = { showTermsDialog = true }) { Icon(Icons.Default.Settings, "Privacidad y términos", tint = Ink) }
+                                if (effectiveFavorites.isNotEmpty()) IconButton(onClick = ::clearFavorites) { Icon(Icons.Default.DeleteOutline, "Quitar todos los favoritos", tint = Muted) }
                             }
                         }
                     } else {
@@ -338,9 +350,9 @@ private fun AlozenaApp() {
                     item {
                         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = { showFilters = true }, shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 13.dp, vertical = 7.dp)) {
-                                Icon(Icons.Default.Tune, null, modifier = Modifier.size(16.dp)); Text(" Filtros", fontSize = 12.sp)
+                                Icon(Icons.Default.Tune, null, modifier = Modifier.size(16.dp)); Text(" Precio y calificación", fontSize = 12.sp)
                             }
-                            OutlinedButton(onClick = { category = "Todo" }, shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 13.dp, vertical = 7.dp)) { Text("Categoría · ${if (category == "Todo") "Todas" else category}", fontSize = 12.sp) }
+                            OutlinedButton(onClick = { showFilters = true }, shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 13.dp, vertical = 7.dp)) { Text("Tipo · ${if (category == "Todo") "Todos" else category}", fontSize = 12.sp) }
                         }
                     }
                     item {
@@ -382,7 +394,19 @@ private fun AlozenaApp() {
             confirmButton = { TextButton(onClick = { showHelpDialog = false }) { Text("Entendido") } }
         )
     }
-    if (showFilters) CategoryFilterDialog(categories = categoryFilters, selected = category, onSelect = { category = it; showFilters = false }, onDismiss = { showFilters = false })
+    if (showFilters) {
+        CategoryFilterDialog(
+            categories = categoryFilters,
+            selected = category,
+            maxPrice = maxNightlyPrice,
+            minimumRating = minimumRating,
+            onSelect = { category = it },
+            onPriceChange = { maxNightlyPrice = it },
+            onRatingChange = { minimumRating = it },
+            onDismiss = { showFilters = false },
+            onApply = { showFilters = false }
+        )
+    }
 }
 
 @Composable
@@ -472,6 +496,7 @@ private fun AlozenaHomeHeader(
                 singleLine = true,
                 textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, color = Ink),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { if (query.isNotBlank()) onOpenAirbnb() }),
                 decorationBox = { inner -> Box { if (query.isBlank()) Text("Buscar destinos...", color = Muted, fontSize = 14.sp); inner() } }
             )
             if (query.isNotBlank()) IconButton(onClick = { onQuery("") }) { Icon(Icons.Default.Close, "Borrar búsqueda", tint = Muted) }
@@ -514,7 +539,7 @@ private fun AlozenaHomeHeader(
         }
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Destinos populares", Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 17.sp, color = Ink)
-            TextButton(onClick = { onDestination("") }) { Text("Ver todos →", color = Coral, fontSize = 12.sp) }
+            TextButton(onClick = onOpenAirbnb) { Text("Ver todos →", color = Coral, fontSize = 12.sp) }
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             listOf("CDMX" to "Ciudad de México", "Cancún" to "Cancún", "Oaxaca" to "Oaxaca", "Mérida" to "Mérida").forEach { (label, destination) ->
@@ -539,24 +564,43 @@ private fun AlozenaHomeHeader(
 
 
 @Composable
-private fun CategoryFilterDialog(categories: List<String>, selected: String, onSelect: (String) -> Unit, onDismiss: () -> Unit) {
+private fun CategoryFilterDialog(
+    categories: List<String>,
+    selected: String,
+    maxPrice: Float,
+    minimumRating: Float,
+    onSelect: (String) -> Unit,
+    onPriceChange: (Float) -> Unit,
+    onRatingChange: (Float) -> Unit,
+    onDismiss: () -> Unit,
+    onApply: () -> Unit
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Tipo de alojamiento", fontWeight = FontWeight.Bold, color = Ink) },
+        title = { Text("Filtrar alojamientos", fontWeight = FontWeight.Bold, color = Ink) },
         text = {
-            Column {
+            Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
+                Text("Tipo de lugar", fontWeight = FontWeight.SemiBold, color = Ink)
                 categories.forEach { item ->
                     Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onSelect(item) }.padding(vertical = 8.dp, horizontal = 4.dp),
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onSelect(item) }.padding(vertical = 5.dp, horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(item, modifier = Modifier.weight(1f), color = Ink)
                         RadioButton(selected = selected == item, onClick = { onSelect(item) })
                     }
                 }
+                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                Text("Precio máximo por noche", fontWeight = FontWeight.SemiBold, color = Ink)
+                Text("$${formatPrice(maxPrice.toInt())} MXN", color = Muted, fontSize = 13.sp)
+                Slider(value = maxPrice, onValueChange = onPriceChange, valueRange = 500f..15000f, steps = 28)
+                Text("Calificación mínima", fontWeight = FontWeight.SemiBold, color = Ink)
+                Text(if (minimumRating <= 0f) "Cualquiera" else "${"%.1f".format(Locale("es", "MX"), minimumRating)} de 5", color = Muted, fontSize = 13.sp)
+                Slider(value = minimumRating, onValueChange = onRatingChange, valueRange = 0f..5f, steps = 9)
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Listo", color = Coral) } },
+        confirmButton = { TextButton(onClick = onApply) { Text("Aplicar", color = Coral) } },
+        dismissButton = { TextButton(onClick = { onSelect("Todo"); onPriceChange(15000f); onRatingChange(0f) }) { Text("Restablecer", color = Muted) } },
         shape = RoundedCornerShape(22.dp),
         containerColor = Color.White
     )
