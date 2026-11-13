@@ -50,6 +50,13 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Configure Firebase Android app
+        env:
+          FIREBASE_ANDROID_CONFIG: ${{ secrets.FIREBASE_ANDROID_CONFIG }}
+        run: |
+          if [ -n "$FIREBASE_ANDROID_CONFIG" ]; then
+            printf '%s' "$FIREBASE_ANDROID_CONFIG" > app/google-services.json
+          fi
       - name: Run Android unit tests
         run: gradle testDebugUnitTest --no-daemon
       - name: Build debug APK
