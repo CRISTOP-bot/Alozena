@@ -29,3 +29,6 @@ Las pruebas emuladas no despliegan reglas en producción. Nunca guardes claves d
 ## Build y CI
 
 Android usa Gradle 8.9 y JDK 17. GitHub Actions ejecuta pruebas de reglas Firestore en el emulador, tests unitarios, `assembleDebug` y `signingReport`. Los builds de `main` usan la configuración Firebase del secreto `FIREBASE_ANDROID_CONFIG`; el archivo se materializa solo durante el build y está excluido por `.gitignore`.
+
+
+Creado por un niño de 12 años BTW
