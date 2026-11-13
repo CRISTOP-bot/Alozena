@@ -70,9 +70,9 @@ jobs:
           oauth = clients[0].get('oauth_client', [])
           print(f'Firebase config verified for {project}; OAuth clients configured: {len(oauth)}')
           if not oauth:
-              print('::warning::No OAuth clients in google-services.json; Google sign-in will not work until Google provider/OAuth setup is completed and the file is refreshed.')
+              print('::warning::No OAuth clients; Google sign-in requires Firebase Google provider and OAuth configuration, then a refreshed google-services.json.')
           PY
-      - name: Use Firebase config on non-release branches when available
+      - name: Use Firebase config on non-release builds when available
         if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/v')
         env:
           FIREBASE_ANDROID_CONFIG: ${{ secrets.FIREBASE_ANDROID_CONFIG }}
@@ -86,8 +86,6 @@ jobs:
         run: gradle testDebugUnitTest --no-daemon
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
-      - name: Report Android debug signing fingerprints
-        run: gradle signingReport --no-daemon
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:

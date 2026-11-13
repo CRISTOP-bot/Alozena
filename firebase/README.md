@@ -1,15 +1,19 @@
 # Firebase de Estadía
 
-Proyecto Firebase indicado por `google-services.json`: `estadia-37fbf`  
+Proyecto identificado por el archivo Firebase recibido: `estadia-37fbf`  
 App Android: `com.cristopbot.estadia`
 
-## Requisitos de consola (realizar en Firebase Console)
+## Habilitación en Firebase Console
 
-1. En Authentication → Proveedores de acceso, habilita **Google** y configura la pantalla de consentimiento OAuth si Google la solicita.
-2. En la app Android de Firebase agrega las huellas SHA-1 y SHA-256 del certificado que firma el APK que vas a instalar. Para builds de GitHub Actions `assembleDebug`, obtén la huella del certificado debug correspondiente; si cambias la clave de firma, registra también sus huellas.
-3. Vuelve a descargar `google-services.json` después de configurar Google Sign-In y reemplaza el secreto de repo `FIREBASE_ANDROID_CONFIG` con el contenido actualizado. El JSON actual está registrado para el package correcto, pero contiene `oauth_client: []`, por lo que no permite Google Sign-In todavía.
-4. Crea Cloud Firestore en la consola, seleccionando cuidadosamente la región: no se puede cambiar una vez creada la base.
-5. Después de crear Firestore, despliega reglas e índices desde una terminal con Firebase CLI autenticada como propietaria:
+1. Confirma que estás en el proyecto `estadia-37fbf`.
+2. En Authentication → Proveedores de acceso, habilita Google y completa configuración OAuth requerida.
+3. En la configuración de la app Android registra SHA-1 y SHA-256 del certificado debug. El workflow imprime esas huellas mediante `gradle signingReport`.
+4. El `google-services.json` recibido registra el package correcto, pero `oauth_client` está vacío. Después de configurar Google/OAuth, descarga un JSON actualizado y reemplaza el secreto de repo `FIREBASE_ANDROID_CONFIG`.
+5. Crea Cloud Firestore si aún no existe y selecciona cuidadosamente la región: no puede cambiarse posteriormente.
+
+## Desplegar reglas e índices
+
+Desde una terminal que tenga Firebase CLI y sesión iniciada como propietaria del proyecto:
 
 ```sh
 firebase login
@@ -17,20 +21,17 @@ firebase use estadia-37fbf
 firebase deploy --only firestore:rules,firestore:indexes
 ```
 
-El archivo `.firebaserc` local queda ignorado por Git. También puedes usar `firebase deploy --project estadia-37fbf --only firestore:rules,firestore:indexes`.
+También se puede indicar el proyecto directamente: `firebase deploy --project estadia-37fbf --only firestore:rules,firestore:indexes`.
 
-## Datos de alojamientos
+La selección local `.firebaserc` no se versiona. El despliegue real solo se completa al ejecutar el comando en sesión autorizada y revisar su resultado; la prueba de emulador de CI no cambia el proyecto remoto.
 
-`seed-stays.example.json` es una plantilla demostrativa y tiene `published:false`. **No se incluye ni se publica automáticamente**: antes de cargar alojamientos reales, confirma derecho de uso de fotos, veracidad de descripción, precio y autorización del anfitrión. Los documentos publicados deben incluir `hostUid` propio para cumplir las reglas de lectura/anfitrión.
+## Inventario y límites
 
-## Seguridad y CI
+`seed-stays.example.json` contiene ejemplos no publicados y no se carga automáticamente. No publicar esos documentos como anuncios reales sin verificar autorización del anfitrión, tarifas e imágenes. El prototipo todavía no tiene un flujo UI completo para crear/publicar alojamientos ni para enviar solicitudes reales de reserva.
 
-- `app/google-services.json` contiene configuración cliente, no una credencial administrativa; permanece ignorado por Git.
-- GitHub Actions lee el secreto de repositorio `FIREBASE_ANDROID_CONFIG` solo en builds de `main` y tags `v*` y genera el archivo durante el build.
-- Nunca guardes una service-account key en la app, en Git o en un secreto usado para compilar el APK.
-- CI prueba reglas Firestore contra el emulador. Esto no comprueba el estado ni despliega las reglas del proyecto remoto.
-- La solicitud de viaje del prototipo no es una reserva confirmada, no valida disponibilidad y no procesa pagos.
+## Protección de credenciales
 
-## Pendientes de habilitación remota
-
-No se puede afirmar que Authentication o Firestore estén activos sin una comprobación en la consola/proyecto. El JSON compartido confirma el project ID y package Android, pero aún no incluye OAuth clients. Tras activar Google provider, descargar el JSON actualizado y desplegar reglas, instala un APK generado con ese JSON y prueba el acceso con Google y una consulta autorizada.
+- `app/google-services.json` se mantiene ignorado por Git.
+- GitHub Actions usa `FIREBASE_ANDROID_CONFIG` desde un secreto y lo materializa durante el build conectado.
+- Nunca agregues credenciales de servicio/admin al APK, al repositorio ni a secretos de build de Android.
+- Las reglas se prueban contra Firestore Emulator; esos tests no verifican el estado o despliegue de Authentication/Firestore en producción.
