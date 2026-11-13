@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,6 +30,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
+import com.cristopbot.estadia.data.BackendState
+import com.cristopbot.estadia.data.EstadiaRepository
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,8 +61,43 @@ private fun EstadiaApp() {
     var selectedStay by remember { mutableStateOf<Stay?>(null) }
     var showFilters by remember { mutableStateOf(false) }
     val categories = listOf("Todo", "Frente al mar", "Cabañas", "Casas", "Albercas", "Ciudades")
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val backendState = remember { EstadiaRepository.backendState(context) }
+    var remoteStays by remember { mutableStateOf<List<Stay>?>(null) }
+    var remoteFavoriteIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var backendMessage by remember { mutableStateOf<String?>(null) }
     val isFavoritesPage = selectedTab == 1
-    val results = StayFilters.filter(StayCatalog.stays, query, category, isFavoritesPage, favorites)
+    val effectiveFavorites = if (backendState == BackendState.Ready) {
+        (remoteStays ?: emptyList()).filter { it.id.toString() in remoteFavoriteIds }.map { it.id }.toSet()
+    } else favorites
+    val results = StayFilters.filter(remoteStays ?: StayCatalog.stays, query, category, isFavoritesPage, effectiveFavorites)
+
+    LaunchedEffect(backendState, query, category) {
+        if (backendState == BackendState.Ready) {
+            runCatching { EstadiaRepository.create(context).searchStays(query, category) }
+                .onSuccess { remoteStays = it; backendMessage = null }
+                .onFailure { backendMessage = "No se pudo cargar el catálogo de Firestore" }
+        }
+    }
+    LaunchedEffect(backendState, isFavoritesPage) {
+        if (backendState == BackendState.Ready && isFavoritesPage) {
+            runCatching { EstadiaRepository.create(context).getFavoriteStayIds() }
+                .onSuccess { remoteFavoriteIds = it }
+                .onFailure { backendMessage = "Inicia sesión para cargar tus favoritos" }
+        }
+    }
+    fun toggleFavorite(stay: Stay) {
+        val wasFavorite = stay.id in favorites
+        favorites = if (wasFavorite) favorites - stay.id else favorites + stay.id
+        if (backendState == BackendState.Ready) {
+            scope.launch {
+                runCatching { EstadiaRepository.create(context).setFavorite(stay.id.toString(), !wasFavorite) }
+                    .onSuccess { remoteFavoriteIds = if (wasFavorite) remoteFavoriteIds - stay.id.toString() else remoteFavoriteIds + stay.id.toString() }
+                    .onFailure { remoteFavoriteIds = if (wasFavorite) remoteFavoriteIds + stay.id.toString() else remoteFavoriteIds - stay.id.toString(); backendMessage = "Inicia sesión para guardar favoritos" }
+            }
+        }
+    }
 
     Scaffold(
         containerColor = Color.White,
@@ -77,6 +116,7 @@ private fun EstadiaApp() {
             else -> {
                 Column(Modifier.fillMaxSize().padding(padding)) {
                     SearchHeader(query = query, onQuery = { query = it }, onFilters = { showFilters = true })
+                    backendMessage?.let { Text(it, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 12.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
                         categories.forEach { item ->
                             val active = category == item
@@ -103,7 +143,7 @@ private fun EstadiaApp() {
                         LazyColumn(contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
                             items(results, key = { it.id }) { stay ->
                                 StayCard(stay, isFavorite = stay.id in favorites,
-                                    onFavorite = { favorites = if (stay.id in favorites) favorites - stay.id else favorites + stay.id },
+                                    onFavorite = { toggleFavorite(stay) },
                                     onClick = { selectedStay = stay })
                             }
                         }

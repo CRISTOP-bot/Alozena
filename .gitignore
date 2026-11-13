@@ -3,3 +3,11 @@
 local.properties
 **/build/
 .DS_Store
+
+# Firebase client config (contains project identifiers; never commit user-specific setup)
+google-services.json
+app/google-services.json
+firebase-debug.log
+ui-debug.log
+.firebase/
+.firebaserc

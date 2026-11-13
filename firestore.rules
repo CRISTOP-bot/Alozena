@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isHost(stayId) {
+      return signedIn() && get(/databases/$(database)/documents/stays/$(stayId)).data.hostUid == request.auth.uid;
+    }
+    function validIsoDate(value) {
+      return value is string && value.matches('^(19[0-9]{2}|20[0-9]{2}|21[0-9]{2})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$');
+    }
+    function validBooking() {
+      let stayPath = /databases/$(database)/documents/stays/$(request.resource.data.stayId);
+      return request.resource.data.keys().hasOnly(['guestUid', 'stayId', 'checkIn', 'checkOut', 'guests', 'status', 'createdAt'])
+        && request.resource.data.guestUid == request.auth.uid
+        && request.resource.data.stayId is string
+        && request.resource.data.status == 'requested'
+        && validIsoDate(request.resource.data.checkIn)
+        && validIsoDate(request.resource.data.checkOut)
+        && request.resource.data.checkIn < request.resource.data.checkOut
+        && request.resource.data.guests is int
+        && request.resource.data.guests > 0
+        && exists(stayPath)
+        && get(stayPath).data.published == true
+        && request.resource.data.guests <= get(stayPath).data.maxGuests;
+    }
+    function validBookingCancellation() {
+      return resource.data.guestUid == request.auth.uid
+        && resource.data.status == 'requested'
+        && request.resource.data.status == 'cancelled'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+    }
+
+    // Curated public catalogue. Only its host may change an existing listing.
+    match /stays/{stayId} {
+      allow read: if resource.data.published == true || (signedIn() && resource.data.hostUid == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.hostUid == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.location is string
+        && request.resource.data.category is string
+        && request.resource.data.pricePerNight is int
+        && request.resource.data.pricePerNight > 0
+        && request.resource.data.maxGuests is int
+        && request.resource.data.maxGuests > 0
+        && request.resource.data.published == false;
+      allow update, delete: if signedIn() && resource.data.hostUid == request.auth.uid
+        && request.resource.data.hostUid == resource.data.hostUid;
+    }
+
+    // Private profile documents belong only to their authenticated owner.
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['displayName', 'photoUrl', 'createdAt', 'updatedAt'])
+        && (!('displayName' in request.resource.data) || request.resource.data.displayName is string)
+        && (!('photoUrl' in request.resource.data) || request.resource.data.photoUrl is string);
+      allow delete: if false;
+
+      match /favorites/{stayId} {
+        allow read, delete: if signedIn() && request.auth.uid == uid;
+        allow create: if signedIn() && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['stayId', 'createdAt'])
+          && request.resource.data.stayId == stayId
+          && exists(/databases/$(database)/documents/stays/$(stayId));
+        allow update: if false;
+      }
+    }
+
+    // A guest can submit a request only for a published listing and within capacity.
+    // Payment and confirmed reservations are intentionally not supported by this prototype.
+    match /bookings/{bookingId} {
+      allow create: if signedIn() && validBooking();
+      allow read: if signedIn() && (resource.data.guestUid == request.auth.uid || isHost(resource.data.stayId));
+      allow update: if signedIn() && validBookingCancellation();
+      allow delete: if false;
+    }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}
