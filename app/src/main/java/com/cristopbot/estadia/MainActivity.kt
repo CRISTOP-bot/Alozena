@@ -59,7 +59,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import com.cristopbot.estadia.data.BackendState
-import com.cristopbot.estadia.data.AlozenaRepository
+import com.cristopbot.estadia.data.EstadiaRepository
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -99,7 +99,7 @@ private fun AlozenaApp() {
     val localFavoritesDb = remember(context) { GuestFavoritesDb(context) }
     var signInInProgress by remember { mutableStateOf(false) }
     LaunchedEffect(localFavoritesDb) { favorites = withContext(Dispatchers.IO) { localFavoritesDb.readFavorites() } }
-    val backendState = remember { AlozenaRepository.backendState(context) }
+    val backendState = remember { EstadiaRepository.backendState(context) }
     var remoteStays by remember { mutableStateOf<List<Stay>?>(null) }
     var remoteFavoriteIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var backendMessage by remember { mutableStateOf<String?>(null) }
@@ -127,14 +127,14 @@ private fun AlozenaApp() {
 
     LaunchedEffect(backendState, query, category) {
         if (backendState == BackendState.Ready) {
-            runCatching { AlozenaRepository.create(context).searchStays(query, category) }
+            runCatching { EstadiaRepository.create(context).searchStays(query, category) }
                 .onSuccess { remoteStays = it; backendMessage = null }
                 .onFailure { backendMessage = "No se pudo cargar el catálogo de Firestore" }
         }
     }
     LaunchedEffect(backendState, isFavoritesPage, userEmail) {
         if (backendState == BackendState.Ready && isFavoritesPage && userEmail != null) {
-            runCatching { AlozenaRepository.create(context).getFavoriteStayIds() }
+            runCatching { EstadiaRepository.create(context).getFavoriteStayIds() }
                 .onSuccess { remoteFavoriteIds = it }
                 .onFailure { backendMessage = "Inicia sesión para cargar tus favoritos" }
         }
@@ -158,7 +158,7 @@ private fun AlozenaApp() {
                 } catch (cancelled: GetCredentialCancellationException) {
                     // Some Google Play Services builds close the button-flow after the account is chosen.
                     // Retry once with the standard account chooser before reporting a cancellation.
-                    Log.w("AlozenaAuth", "Google button flow closed; retrying with account chooser", cancelled)
+                    Log.w("EstadiaAuth", "Google button flow closed; retrying with account chooser", cancelled)
                     val accountChooser = GetGoogleIdOption.Builder()
                         .setFilterByAuthorizedAccounts(false)
                         .setServerClientId(clientId)
@@ -173,13 +173,13 @@ private fun AlozenaApp() {
                         GoogleIdTokenCredential.createFrom(credential.data).idToken
                     else -> error("Google no devolvió un token de acceso válido.")
                 }
-                AlozenaRepository.create(context).signInWithGoogleIdToken(idToken)
+                EstadiaRepository.create(context).signInWithGoogleIdToken(idToken)
                 userEmail = firebaseAuth?.currentUser?.email
                 preferences.edit().putBoolean("welcome_completed", true).apply()
                 hasCompletedWelcome = true
                 accountMessage = "Sesión iniciada."
             } catch (error: GetCredentialCancellationException) {
-                Log.i("AlozenaAuth", "Google account chooser was dismissed", error)
+                Log.i("EstadiaAuth", "Google account chooser was dismissed", error)
                 accountMessage = "El selector de Google se cerró antes de devolver una cuenta. Toca Continuar con Google para volver a intentarlo."
             } catch (error: NoCredentialException) {
                 accountMessage = "No se encontró una cuenta de Google disponible en este dispositivo. Revisa que Google Play Services esté actualizado o agrega una cuenta en Ajustes."
@@ -192,7 +192,7 @@ private fun AlozenaApp() {
                     "Firebase no aceptó el acceso de Google (${error.errorCode}). Revisa proveedor y configuración OAuth."
                 }
             } catch (error: Exception) {
-                Log.e("AlozenaAuth", "Google sign-in failed: ${error.javaClass.simpleName}", error)
+                Log.e("EstadiaAuth", "Google sign-in failed: ${error.javaClass.simpleName}", error)
                 accountMessage = error.localizedMessage?.takeIf { it.isNotBlank() }
                     ?: "No se pudo completar el acceso con Google (${error.javaClass.simpleName}). Revisa tu conexión y vuelve a intentarlo."
             } finally {
@@ -213,7 +213,7 @@ private fun AlozenaApp() {
         if (userEmail == null) scope.launch(Dispatchers.IO) { localFavoritesDb.setFavorite(stay.id, !wasFavorite) }
         if (backendState == BackendState.Ready && userEmail != null) {
             scope.launch {
-                runCatching { AlozenaRepository.create(context).setFavorite(stay.id.toString(), !wasFavorite) }
+                runCatching { EstadiaRepository.create(context).setFavorite(stay.id.toString(), !wasFavorite) }
                     .onSuccess { remoteFavoriteIds = if (wasFavorite) remoteFavoriteIds - stay.id.toString() else remoteFavoriteIds + stay.id.toString() }
                     .onFailure { remoteFavoriteIds = if (wasFavorite) remoteFavoriteIds + stay.id.toString() else remoteFavoriteIds - stay.id.toString(); backendMessage = "Inicia sesión para guardar favoritos" }
             }
