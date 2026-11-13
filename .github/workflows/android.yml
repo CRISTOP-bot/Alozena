@@ -91,7 +91,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: estadia-debug-apk
+          name: alozena-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - name: Publish main build as prerelease
@@ -99,7 +99,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v0.1.${{ github.run_number }}
-          name: Estadía v0.1.${{ github.run_number }}
+          name: Alozena v0.1.${{ github.run_number }}
           prerelease: true
           generate_release_notes: true
           files: app/build/outputs/apk/debug/app-debug.apk

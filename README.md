@@ -1,14 +1,14 @@
-# Estadía 🏡
+# Alozena 🏡
 
-App Android nativa en Kotlin y Jetpack Compose para explorar alojamientos, buscar destinos, filtrar categorías y guardar favoritos.
+App Android nativa Alozena en Kotlin y Jetpack Compose para explorar alojamientos, buscar destinos, filtrar categorías y guardar favoritos.
 
-> **Estado:** el repositorio incluye cliente Firebase/Firestore y reglas, y el CI prueba las reglas con el emulador y genera un APK. El JSON compartido identifica el proyecto `estadia-37fbf` y la app Android `com.cristopbot.estadia`; por sí solo no demuestra que Authentication o Firestore estén activados/desplegados. Los alojamientos de muestra siguen siendo datos locales. La app no procesa pagos ni confirma reservas.
+> **Estado:** el repositorio incluye cliente Firebase/Firestore y reglas, y el CI prueba las reglas con el emulador y genera un APK. El JSON compartido identifica el proyecto `estadia-37fbf` y la app Android `com.cristopbot.estadia`; por sí solo no demuestra que Authentication o Firestore estén activados/desplegados. Los alojamientos de muestra siguen siendo datos locales. El nombre visible y la interfaz son Alozena. La app no procesa pagos ni confirma reservas.
 
 ## Firebase
 
-La integración de cliente incluye lectura del catálogo publicado, favoritos por usuario y acceso con Google (Credential Manager → Firebase Authentication). La primera apertura presenta bienvenida y consentimiento; permite iniciar sesión o explorar como invitado. Los favoritos de invitado se guardan localmente en SQLite; los usuarios con sesión usan sus favoritos de Firebase. El detalle distingue claramente catálogo de demostración de anuncios reales, y abre Airbnb para revisar disponibilidad y reseñas actuales. Estadía no importa ni replica anuncios de Airbnb.
+La integración de cliente incluye lectura del catálogo publicado, favoritos por usuario y acceso con Google (Credential Manager → Firebase Authentication). La primera apertura presenta bienvenida y consentimiento; permite iniciar sesión o explorar como invitado. Los favoritos de invitado se guardan localmente en SQLite; los usuarios con sesión usan sus favoritos de Firebase. El detalle distingue claramente catálogo de demostración de anuncios reales, y abre Airbnb para revisar disponibilidad y reseñas actuales. Alozena no importa ni replica anuncios de Airbnb.
 
-Airbnb no ofrece acceso irrestricto a su API de alojamientos: la integración oficial está sujeta a un programa de socios, permisos y revisión de seguridad. La búsqueda externa no es una API ni una sincronización de datos. No se inventan reseñas. Estadía es un proyecto independiente, no afiliado a Airbnb.
+Airbnb no ofrece acceso irrestricto a su API de alojamientos: la integración oficial está sujeta a un programa de socios, permisos y revisión de seguridad. La búsqueda externa no es una API ni una sincronización de datos. No se inventan reseñas. Alozena es un proyecto independiente, no afiliado a Airbnb.
 
 1. En Firebase Console, activa Authentication → Google y crea Cloud Firestore en el proyecto `estadia-37fbf`.
 2. Registra las huellas SHA-1 y SHA-256 del certificado Android para Google Sign-In; puedes obtenerlas en los logs del job mediante `gradle signingReport`.
@@ -42,3 +42,6 @@ Android usa Gradle 8.9 y JDK 17. GitHub Actions ejecuta pruebas de reglas Firest
 - El manifiesto Android de la app declara únicamente permiso de Internet; la app no pide SMS, accesibilidad, lectura de notificaciones ni control del dispositivo. No se intenta ocultar ni evadir Play Protect. Si muestra una alerta, conserva el texto exacto, analiza el APK y usa la apelación oficial de Google cuando proceda.
 
 Creado por un niño de 12 años BTW
+
+
+La marca visible y el nombre del proyecto Gradle son Alozena. El applicationId Android y el namespace técnico se conservan para no romper Firebase, las instalaciones existentes ni el mecanismo de actualización.

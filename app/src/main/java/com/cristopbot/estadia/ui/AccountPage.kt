@@ -31,9 +31,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val Coral = Color(0xFFFF385C)
-private val Ink = Color(0xFF222222)
-private val Muted = Color(0xFF717171)
+private val Coral = Color(0xFF2463D3)
+private val Ink = Color(0xFF152238)
+private val Muted = Color(0xFF65758B)
 
 @Composable
 fun AccountPage(
@@ -58,12 +58,12 @@ fun AccountPage(
             Icon(Icons.Default.PersonOutline, contentDescription = null, tint = Coral, modifier = Modifier.padding(2.dp))
         }
         Spacer(Modifier.height(20.dp))
-        Text(if (userEmail == null) "Inicia sesión" else "Tu cuenta", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Ink)
+        Text(if (userEmail == null) "Perfil" else "Tu perfil", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Ink)
         Spacer(Modifier.height(8.dp))
         Text(
             when {
-                !backendReady -> "La conexión con Firebase aún no está disponible. Puedes seguir explorando alojamientos de muestra."
-                userEmail != null -> "Tu cuenta de Estadía está conectada con Google."
+                !backendReady -> "La conexión con Firebase aún no está disponible. Puedes seguir explorando Alozena como invitado."
+                userEmail != null -> "Tu cuenta de Alozena está conectada con Google."
                 else -> "Usa tu cuenta de Google para guardar y sincronizar tus favoritos."
             },
             color = Muted,
@@ -89,7 +89,7 @@ fun AccountPage(
                     backendReady -> {
                         Text("Acceso seguro", color = Ink, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(6.dp))
-                        Text("Inicia sesión con Google. Estadía no recibe ni guarda tu contraseña.", color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center)
+                        Text("Inicia sesión con Google. Alozena no recibe ni guarda tu contraseña.", color = Muted, fontSize = 13.sp, textAlign = TextAlign.Center)
                         Spacer(Modifier.height(18.dp))
                         Button(onClick = onSignIn, enabled = !isLoading, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
                             if (isLoading) CircularProgressIndicator(modifier = Modifier.height(20.dp), strokeWidth = 2.dp)
