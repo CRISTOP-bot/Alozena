@@ -1,8 +1,15 @@
 package com.cristopbot.estadia
 
 import android.os.Bundle
+import android.app.Activity
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.firebase.auth.FirebaseAuth
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -19,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.DisposableEffect
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +75,16 @@ private fun EstadiaApp() {
     var remoteStays by remember { mutableStateOf<List<Stay>?>(null) }
     var remoteFavoriteIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var backendMessage by remember { mutableStateOf<String?>(null) }
+    var accountMessage by remember { mutableStateOf<String?>(null) }
+    val firebaseAuth = remember(backendState) {
+        if (backendState == BackendState.Ready) runCatching { FirebaseAuth.getInstance() }.getOrNull() else null
+    }
+    var userEmail by remember(firebaseAuth) { mutableStateOf(firebaseAuth?.currentUser?.email) }
+    DisposableEffect(firebaseAuth) {
+        val listener = FirebaseAuth.AuthStateListener { auth -> userEmail = auth.currentUser?.email }
+        firebaseAuth?.addAuthStateListener(listener)
+        onDispose { firebaseAuth?.removeAuthStateListener(listener) }
+    }
     val isFavoritesPage = selectedTab == 1
     val effectiveFavorites = if (backendState == BackendState.Ready) {
         (remoteStays ?: emptyList()).filter { it.id.toString() in remoteFavoriteIds }.map { it.id }.toSet()
@@ -80,7 +98,7 @@ private fun EstadiaApp() {
                 .onFailure { backendMessage = "No se pudo cargar el catálogo de Firestore" }
         }
     }
-    LaunchedEffect(backendState, isFavoritesPage) {
+    LaunchedEffect(backendState, isFavoritesPage, userEmail) {
         if (backendState == BackendState.Ready && isFavoritesPage) {
             runCatching { EstadiaRepository.create(context).getFavoriteStayIds() }
                 .onSuccess { remoteFavoriteIds = it }
@@ -88,7 +106,7 @@ private fun EstadiaApp() {
         }
     }
     fun toggleFavorite(stay: Stay) {
-        val wasFavorite = stay.id in favorites
+        val wasFavorite = stay.id in effectiveFavorites
         favorites = if (wasFavorite) favorites - stay.id else favorites + stay.id
         if (backendState == BackendState.Ready) {
             scope.launch {
@@ -112,7 +130,52 @@ private fun EstadiaApp() {
     ) { padding ->
         when (selectedTab) {
             2 -> PlaceholderPage("Tus viajes", "Cuando reserves un alojamiento, aparecerá aquí.", Icons.Default.Luggage, Modifier.padding(padding))
-            3 -> PlaceholderPage("Tu perfil", "Tu espacio personal para tus próximas aventuras.", Icons.Default.PersonOutline, Modifier.padding(padding))
+            3 -> com.cristopbot.estadia.ui.AccountPage(
+                modifier = Modifier.padding(padding).fillMaxSize(),
+                userEmail = userEmail,
+                backendReady = backendState == BackendState.Ready,
+                statusMessage = accountMessage,
+                onSignIn = {
+                    scope.launch {
+                        accountMessage = null
+                        try {
+                            val clientIdResource = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
+                            check(clientIdResource != 0) { "Falta la configuración OAuth de Firebase. Actualiza google-services.json." }
+                            val clientId = context.getString(clientIdResource)
+                            val googleOption = GetGoogleIdOption.Builder()
+                                .setFilterByAuthorizedAccounts(false)
+                                .setServerClientId(clientId)
+                                .setAutoSelectEnabled(false)
+                                .build()
+                            val request = GetCredentialRequest.Builder()
+                                .addCredentialOption(googleOption)
+                                .build()
+                            val response = CredentialManager.create(context).getCredential(context, request)
+                            val credential = response.credential
+                            val idToken = when {
+                                credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL ->
+                                    GoogleIdTokenCredential.createFrom(credential.data).idToken
+                                else -> error("Google no devolvió una credencial compatible")
+                            }
+                            EstadiaRepository.create(context).signInWithGoogleIdToken(idToken)
+                            userEmail = firebaseAuth?.currentUser?.email
+                            accountMessage = "Sesión iniciada."
+                        } catch (error: Exception) {
+                            accountMessage = when {
+                                error is kotlinx.coroutines.CancellationException -> "Inicio de sesión cancelado."
+                                else -> error.localizedMessage?.takeIf { it.isNotBlank() } ?: "No se pudo iniciar sesión con Google."
+                            }
+                        }
+                    }
+                },
+                onSignOut = {
+                    firebaseAuth?.signOut()
+                    favorites = emptySet()
+                    remoteFavoriteIds = emptySet()
+                    userEmail = null
+                    accountMessage = "Se cerró la sesión."
+                }
+            )
             else -> {
                 Column(Modifier.fillMaxSize().padding(padding)) {
                     SearchHeader(query = query, onQuery = { query = it }, onFilters = { showFilters = true })
@@ -142,7 +205,7 @@ private fun EstadiaApp() {
                     } else {
                         LazyColumn(contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
                             items(results, key = { it.id }) { stay ->
-                                StayCard(stay, isFavorite = stay.id in favorites,
+                                StayCard(stay, isFavorite = stay.id in effectiveFavorites,
                                     onFavorite = { toggleFavorite(stay) },
                                     onClick = { selectedStay = stay })
                             }
