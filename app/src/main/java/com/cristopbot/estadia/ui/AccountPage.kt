@@ -99,7 +99,7 @@ fun AccountPage(
             Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                 ProfileAction(Icons.Default.BookmarkBorder, "Mis reservas", "Consulta tus solicitudes de Alozena", onOpenTrips)
                 ProfileAction(Icons.Default.FavoriteBorder, "Mis favoritos", "Alojamientos que guardaste", onOpenFavorites)
-                ProfileAction(Icons.Default.Info, "Términos y privacidad", "Cómo funciona Alozena", onOpenTerms)
+                ProfileAction(Icons.Default.Settings, "Términos y privacidad", "Cómo funciona Alozena", onOpenTerms)
                 ProfileAction(Icons.Default.HelpOutline, "Ayuda", "Información de la aplicación", onOpenHelp)
                 if (userEmail != null) ProfileAction(Icons.Default.Logout, "Cerrar sesión", "Desconectar esta cuenta", onSignOut)
             }
