@@ -5,8 +5,8 @@ import org.junit.Test
 
 class StayFiltersTest {
     private val listings = listOf(
-        Stay(1, "Casa del Lago", "Valle de Bravo", "Casa", 1800, 0, "Sin reseñas", "https://photo.invalid/casa", "", "Descripción del anfitrión", 2, 4, "id-casa", "host-1"),
-        Stay(2, "Loft Centro", "Oaxaca", "Departamento", 1200, 0, "Sin reseñas", "https://photo.invalid/loft", "", "Descripción del anfitrión", 1, 2, "id-loft", "host-2")
+        Stay(1, "Casa del Lago", "Valle de Bravo", "Casa", 1800, 0, 0, "Sin reseñas", "https://photo.invalid/casa", "", "Descripción del anfitrión", 2, 4, "id-casa", "host-1"),
+        Stay(2, "Loft Centro", "Oaxaca", "Departamento", 1200, 0, 0, "Sin reseñas", "https://photo.invalid/loft", "", "Descripción del anfitrión", 1, 2, "id-loft", "host-2")
     )
 
     @Test fun liveCatalogHasNoPreloadedHomes() {

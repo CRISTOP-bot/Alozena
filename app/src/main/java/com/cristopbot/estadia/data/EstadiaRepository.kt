@@ -90,6 +90,7 @@ class EstadiaRepository private constructor(
                     description = doc.getString("description") ?: "",
                     beds = (doc.getLong("beds") ?: 1L).toInt(),
                     guests = (doc.getLong("maxGuests") ?: 2L).toInt(),
+                    cleaningFee = (doc.getLong("cleaningFee") ?: 0L).toInt(),
                     firestoreId = doc.id,
                     hostUid = doc.getString("hostUid") ?: "",
                     reviewCount = 0,
@@ -118,6 +119,12 @@ class EstadiaRepository private constructor(
         require(pricePerNight in 1..10000000 && cleaningFee in 0..10000000 && securityDeposit in 0..10000000) { "Revisa el precio, limpieza y depósito" }
         require(maxGuests in 1..30 && beds in 0..30) { "Revisa huéspedes y camas" }
         require(description.trim().length in 20..2000) { "La descripción debe tener entre 20 y 2000 caracteres" }
+        require(photoUri.scheme == "content") { "Elige una foto desde tu dispositivo" }
+        val resolver = appContext.contentResolver
+        val mimeType = resolver.getType(photoUri) ?: error("No se pudo identificar el formato de la foto")
+        require(mimeType in setOf("image/jpeg", "image/png", "image/webp")) { "Elige una foto JPEG, PNG o WebP" }
+        val declaredSize = resolver.openAssetFileDescriptor(photoUri, "r")?.use { it.length }
+        require(declaredSize == null || declaredSize < 0 || declaredSize in 1..10_000_000) { "La foto debe medir menos de 10 MB" }
         require(photoUri.scheme == "content") { "Elige una foto desde tu dispositivo" }
         val resolver = appContext.contentResolver
         val mimeType = resolver.getType(photoUri) ?: error("No se pudo identificar el formato de la foto")
