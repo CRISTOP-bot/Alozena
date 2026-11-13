@@ -3,13 +3,16 @@ package com.cristopbot.estadia
 import android.os.Bundle
 import android.app.Activity
 import android.content.Context
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
+import androidx.credentials.GetCredentialResponse
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.NoCredentialException
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.FirebaseApp
@@ -132,9 +135,23 @@ private fun EstadiaApp() {
                 check(clientIdResource != 0) { "Falta el cliente OAuth web. Actualiza google-services.json desde Firebase." }
                 val clientId = context.getString(clientIdResource)
                 val hostActivity = activity ?: error("No se pudo abrir la ventana de acceso de Google.")
-                val googleOption = GetSignInWithGoogleOption.Builder(clientId).build()
-                val request = GetCredentialRequest.Builder().addCredentialOption(googleOption).build()
-                val response = CredentialManager.create(context).getCredential(hostActivity, request)
+                val credentialManager = CredentialManager.create(hostActivity)
+                val directSignIn = GetSignInWithGoogleOption.Builder(clientId).build()
+                val directRequest = GetCredentialRequest.Builder().addCredentialOption(directSignIn).build()
+                val response: GetCredentialResponse = try {
+                    credentialManager.getCredential(hostActivity, directRequest)
+                } catch (cancelled: GetCredentialCancellationException) {
+                    // Some Google Play Services builds close the button-flow after the account is chosen.
+                    // Retry once with the standard account chooser before reporting a cancellation.
+                    Log.w("EstadiaAuth", "Google button flow closed; retrying with account chooser", cancelled)
+                    val accountChooser = GetGoogleIdOption.Builder()
+                        .setFilterByAuthorizedAccounts(false)
+                        .setServerClientId(clientId)
+                        .setAutoSelectEnabled(false)
+                        .build()
+                    val chooserRequest = GetCredentialRequest.Builder().addCredentialOption(accountChooser).build()
+                    credentialManager.getCredential(hostActivity, chooserRequest)
+                }
                 val credential = response.credential
                 val idToken = when {
                     credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL ->
@@ -147,7 +164,8 @@ private fun EstadiaApp() {
                 hasCompletedWelcome = true
                 accountMessage = "Sesión iniciada."
             } catch (error: GetCredentialCancellationException) {
-                accountMessage = "Inicio de sesión cancelado. Puedes intentarlo de nuevo cuando quieras."
+                Log.i("EstadiaAuth", "Google account chooser was dismissed", error)
+                accountMessage = "El selector de Google se cerró antes de devolver una cuenta. Toca Continuar con Google para volver a intentarlo."
             } catch (error: NoCredentialException) {
                 accountMessage = "No se encontró una cuenta de Google disponible en este dispositivo. Revisa que Google Play Services esté actualizado o agrega una cuenta en Ajustes."
             } catch (error: FirebaseAuthInvalidCredentialsException) {
@@ -159,8 +177,9 @@ private fun EstadiaApp() {
                     "Firebase no aceptó el acceso de Google (${error.errorCode}). Revisa proveedor y configuración OAuth."
                 }
             } catch (error: Exception) {
+                Log.e("EstadiaAuth", "Google sign-in failed: ${error.javaClass.simpleName}", error)
                 accountMessage = error.localizedMessage?.takeIf { it.isNotBlank() }
-                    ?: "No se pudo iniciar sesión. Revisa tu conexión y vuelve a intentarlo."
+                    ?: "No se pudo completar el acceso con Google (${error.javaClass.simpleName}). Revisa tu conexión y vuelve a intentarlo."
             } finally {
                 signInInProgress = false
             }
