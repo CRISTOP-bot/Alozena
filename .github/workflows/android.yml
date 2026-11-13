@@ -86,6 +86,8 @@ jobs:
         run: gradle testDebugUnitTest --no-daemon
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
+      - name: Report Android signing fingerprints
+        run: gradle signingReport --no-daemon
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
