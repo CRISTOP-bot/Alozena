@@ -58,16 +58,16 @@ import coil.compose.AsyncImage
 import java.text.NumberFormat
 import java.util.Locale
 
-private val Coral = Color(0xFF2463D3)
-private val Ink = Color(0xFF152238)
-private val Muted = Color(0xFF65758B)
-private val Soft = Color(0xFFF1F5FB)
-private val BlueForUi = Color(0xFF2463D3)
+private val Coral = Color(0xFF10213D)
+private val Ink = Color(0xFF101827)
+private val Muted = Color(0xFF707887)
+private val Soft = Color(0xFFF4F5F7)
+private val BlueForUi = Color(0xFF10213D)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme(colorScheme = lightColorScheme(primary = Coral, onPrimary = Color.White, background = Color(0xFFF5F7FB), surface = Color.White)) { AlozenaApp() } }
+        setContent { MaterialTheme(colorScheme = lightColorScheme(primary = Coral, onPrimary = Color.White, background = Color(0xFFF6F6F5), surface = Color.White)) { AlozenaApp() } }
     }
 }
 
@@ -318,11 +318,13 @@ private fun AlozenaApp() {
     Scaffold(
         containerColor = Color(0xFFF5F7FB),
         bottomBar = {
-            NavigationBar(containerColor = Color.White, tonalElevation = 8.dp) {
-                NavigationBarItem(selected = selectedTab == 0, onClick = { selectedTab = 0 }, icon = { Icon(Icons.Default.Home, null) }, label = { Text("Inicio") })
-                NavigationBarItem(selected = selectedTab == 1, onClick = { selectedTab = 1 }, icon = { Icon(Icons.Default.FavoriteBorder, null) }, label = { Text("Favoritos") })
-                NavigationBarItem(selected = selectedTab == 2, onClick = { selectedTab = 2 }, icon = { Icon(Icons.Default.AddHome, null) }, label = { Text("Publicar") })
-                NavigationBarItem(selected = selectedTab == 3, onClick = { selectedTab = 3 }, icon = { Icon(Icons.Default.PersonOutline, null) }, label = { Text("Perfil") })
+            NavigationBar(containerColor = Color.White, tonalElevation = 6.dp) {
+                val navColors = NavigationBarItemDefaults.colors(selectedIconColor = Color.White, selectedTextColor = Coral, indicatorColor = Coral, unselectedIconColor = Muted, unselectedTextColor = Muted)
+                NavigationBarItem(selected = selectedTab == 0, onClick = { selectedTab = 0 }, icon = { Icon(Icons.Default.Home, null) }, label = { Text("Inicio", fontSize = 10.sp) }, colors = navColors)
+                NavigationBarItem(selected = selectedTab == 4, onClick = { selectedTab = 4 }, icon = { Icon(Icons.Default.Search, null) }, label = { Text("Buscar", fontSize = 10.sp) }, colors = navColors)
+                NavigationBarItem(selected = selectedTab == 2, onClick = { selectedTab = 2 }, icon = { Icon(Icons.Default.Add, null) }, label = { Text("Publicar", fontSize = 10.sp) }, colors = navColors)
+                NavigationBarItem(selected = selectedTab == 1, onClick = { selectedTab = 1 }, icon = { Icon(Icons.Default.FavoriteBorder, null) }, label = { Text("Favoritos", fontSize = 10.sp) }, colors = navColors)
+                NavigationBarItem(selected = selectedTab == 3, onClick = { selectedTab = 3 }, icon = { Icon(Icons.Default.PersonOutline, null) }, label = { Text("Perfil", fontSize = 10.sp) }, colors = navColors)
             }
         }
     ) { padding ->
@@ -355,6 +357,9 @@ private fun AlozenaApp() {
             3 -> com.cristopbot.estadia.ui.AccountPage(
                 modifier = Modifier.padding(padding).fillMaxSize(),
                 userEmail = userEmail,
+                listingCount = hostListings.size,
+                favoriteCount = effectiveFavorites.size,
+                onOpenListings = { selectedTab = 2 },
                 backendReady = backendState == BackendState.Ready,
                 statusMessage = accountMessage,
                 statusKind = accountMessageKind,
@@ -376,7 +381,7 @@ private fun AlozenaApp() {
             )
             else -> {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(padding),
+                    modifier = Modifier.fillMaxSize().background(Color(0xFFF6F6F5)).padding(padding),
                     contentPadding = PaddingValues(bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
@@ -388,10 +393,15 @@ private fun AlozenaApp() {
                                 if (effectiveFavorites.isNotEmpty()) IconButton(onClick = ::clearFavorites) { Icon(Icons.Default.DeleteOutline, "Quitar todos los favoritos", tint = Muted) }
                             }
                         }
+                    } else if (selectedTab == 4) {
+                        item {
+                            SearchPageHeader(query = query, onQuery = { query = it }, onOpenFilters = { showFilters = true })
+                        }
                     } else {
                         item {
                             AlozenaHomeHeader(
                                 query = query,
+                                selectedCategory = category,
                                 onQuery = { query = it },
                                 onOpenTerms = { showTermsDialog = true },
                                 onCategory = { selected -> category = selected },
@@ -412,7 +422,7 @@ private fun AlozenaApp() {
                     }
                     item {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (isFavoritesPage) "Tus favoritos" else "Lugares para descubrir", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 19.sp, color = Ink)
+                            Text(if (isFavoritesPage) "Tus favoritos" else if (selectedTab == 4) "Resultados de búsqueda" else "Destacados", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 19.sp, color = Ink)
                             Text("${results.size} publicaciones", color = Muted, fontSize = 12.sp)
                         }
                     }
@@ -563,6 +573,7 @@ private fun FirstRunLoginPage(
 @Composable
 private fun AlozenaHomeHeader(
     query: String,
+    selectedCategory: String,
     onQuery: (String) -> Unit,
     onOpenTerms: () -> Unit,
     onCategory: (String) -> Unit,
@@ -570,70 +581,64 @@ private fun AlozenaHomeHeader(
     onPublish: () -> Unit,
     destinations: List<String>
 ) {
-    Column(Modifier.fillMaxWidth().background(Color(0xFFF5F7FB))) {
-        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Home, contentDescription = null, tint = Coral, modifier = Modifier.size(27.dp))
-            Text("Alozena", Modifier.weight(1f).padding(start = 9.dp), fontWeight = FontWeight.Bold, fontSize = 21.sp, color = Ink)
-            IconButton(onClick = onOpenTerms) { Icon(Icons.Default.Settings, "Configuración y términos", tint = Ink) }
+    Column(Modifier.fillMaxWidth().background(Color(0xFFF6F6F5)).padding(bottom = 10.dp)) {
+        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Home, contentDescription = null, tint = Coral, modifier = Modifier.size(25.dp))
+            Text("Alozena", Modifier.weight(1f).padding(start = 8.dp), fontWeight = FontWeight.Bold, fontSize = 21.sp, color = Ink)
+            IconButton(onClick = onOpenTerms) { Icon(Icons.Default.Settings, "Configuración", tint = Ink) }
         }
-        Text("¡Hola!", Modifier.padding(start = 20.dp, top = 4.dp), fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Ink)
-        Text("Busca publicaciones reales de anfitriones Alozena", Modifier.padding(start = 20.dp, top = 2.dp, bottom = 12.dp), fontSize = 15.sp, color = Muted)
+        Text("Encuentra tu
+hogar ideal", Modifier.padding(start = 20.dp, top = 6.dp), fontSize = 29.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold, color = Ink)
+        Text("Renta, busca y vive mejor.", Modifier.padding(start = 20.dp, top = 6.dp, bottom = 14.dp), fontSize = 14.sp, color = Muted)
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(52.dp).clip(RoundedCornerShape(26.dp)).background(Color.White).padding(horizontal = 14.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(52.dp).clip(RoundedCornerShape(17.dp)).background(Color.White).padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Search, null, tint = Coral, modifier = Modifier.size(21.dp))
-            BasicTextField(
-                value = query,
-                onValueChange = onQuery,
-                modifier = Modifier.weight(1f).padding(start = 10.dp),
-                singleLine = true,
-                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, color = Ink),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { }),
-                decorationBox = { inner -> Box { if (query.isBlank()) Text("Buscar destinos...", color = Muted, fontSize = 14.sp); inner() } }
-            )
+            Icon(Icons.Default.Search, null, tint = Muted, modifier = Modifier.size(20.dp))
+            BasicTextField(value = query, onValueChange = onQuery, modifier = Modifier.weight(1f).padding(start = 10.dp), singleLine = true,
+                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, color = Ink), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                decorationBox = { inner -> Box { if (query.isBlank()) Text("Buscar por ciudad, zona o barrio...", color = Muted, fontSize = 13.sp); inner() } })
             if (query.isNotBlank()) IconButton(onClick = { onQuery("") }) { Icon(Icons.Default.Close, "Borrar búsqueda", tint = Muted) }
         }
-        Card(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp).height(142.dp),
-            shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF2463D3))
-        ) {
-            Row(Modifier.fillMaxSize().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Publica en Alozena", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White)
-                    Text("Publica un alojamiento bajo tu responsabilidad. Los anuncios no se verifican físicamente.", modifier = Modifier.padding(top = 6.dp), fontSize = 12.sp, color = Color.White, lineHeight = 17.sp)
-                }
-                IconButton(onClick = onPublish, modifier = Modifier.background(Color.White, CircleShape)) { Icon(Icons.Default.Add, "Publicar alojamiento", tint = Coral) }
-            }
-        }
-        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Categorías", Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 17.sp, color = Ink)
-            TextButton(onClick = { onCategory("Todo") }) { Text("Ver todas →", color = Coral, fontSize = 12.sp) }
+            TextButton(onClick = { onCategory("Todo") }) { Text("Ver todas →", color = Muted, fontSize = 12.sp) }
         }
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            listOf("Casa", "Departamento", "Cabaña", "Habitación", "Otro").forEach { item ->
-                Column(
-                    Modifier.width(82.dp).clip(RoundedCornerShape(14.dp)).background(Color.White).clickable { onCategory(item) }.padding(vertical = 11.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            listOf("Casa", "Departamento", "Habitación", "Cabaña", "Otro").forEach { item ->
+                Column(Modifier.width(78.dp).clip(RoundedCornerShape(15.dp)).background(if (selectedCategory == item) Color(0xFFE7EAF0) else Color.White).clickable { onCategory(item) }.padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(categoryIcon(item), null, tint = Coral, modifier = Modifier.size(23.dp))
                     Text(item, Modifier.padding(top = 6.dp), color = Ink, fontSize = 10.sp, maxLines = 1)
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Destinos publicados", Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 17.sp, color = Ink)
-            Text("${destinations.size}", color = Muted, fontSize = 12.sp)
-        }
-        if (destinations.isEmpty()) {
-            Text("Los destinos aparecerán cuando haya publicaciones reales.", Modifier.padding(start = 20.dp, bottom = 14.dp), color = Muted, fontSize = 12.sp)
-        } else {
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                destinations.forEach { destination ->
-                    AssistChip(onClick = { onDestination(destination) }, label = { Text(destination) }, leadingIcon = { Icon(Icons.Default.LocationOn, null) })
-                }
+        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 16.dp, top = 17.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("¿Tienes un alojamiento?", color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text("Publícalo directamente en Alozena.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
             }
+            TextButton(onClick = onPublish) { Text("Publicar  +", color = Coral, fontWeight = FontWeight.SemiBold) }
+        }
+        if (destinations.isNotEmpty()) {
+            Text("Zonas con publicaciones", Modifier.padding(start = 20.dp, top = 10.dp, bottom = 3.dp), fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Ink)
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                destinations.forEach { destination -> AssistChip(onClick = { onDestination(destination) }, label = { Text(destination, fontSize = 11.sp) }, leadingIcon = { Icon(Icons.Default.LocationOn, null) }) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchPageHeader(query: String, onQuery: (String) -> Unit, onOpenFilters: () -> Unit) {
+    Column(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Buscar alojamientos", Modifier.weight(1f), color = Ink, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+            IconButton(onClick = onOpenFilters) { Icon(Icons.Default.Tune, "Filtros", tint = Ink) }
+        }
+        Row(Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xFFF3F4F5)).padding(horizontal = 13.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Search, null, tint = Muted)
+            BasicTextField(value = query, onValueChange = onQuery, modifier = Modifier.weight(1f).padding(start = 9.dp), singleLine = true, textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, color = Ink), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), decorationBox = { inner -> Box { if (query.isBlank()) Text("Ciudad, zona o barrio", color = Muted, fontSize = 13.sp); inner() } })
+            if (query.isNotBlank()) IconButton(onClick = { onQuery("") }) { Icon(Icons.Default.Close, "Limpiar", tint = Muted) }
         }
     }
 }
@@ -681,28 +686,26 @@ private fun CategoryFilterDialog(
 
 @Composable
 private fun StayCard(stay: Stay, isFavorite: Boolean, onFavorite: () -> Unit, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Card(modifier.fillMaxWidth().animateContentSize().clickable(onClick = onClick), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
-        Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(112.dp, 106.dp)) {
-                AsyncImage(model = stay.image, contentDescription = stay.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(13.dp)))
-                val heartScale by animateFloatAsState(if (isFavorite) 1.12f else 1f, label = "favorite-heart")
-                IconButton(onClick = onFavorite, modifier = Modifier.align(Alignment.TopEnd).padding(3.dp).size(35.dp).background(Color.White.copy(alpha = .94f), CircleShape)) {
-                    Icon(if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, "Guardar en favoritos", tint = if (isFavorite) Coral else Ink, modifier = Modifier.size(20.dp).graphicsLayer { scaleX = heartScale; scaleY = heartScale })
+    Card(modifier.fillMaxWidth().animateContentSize().clickable(onClick = onClick), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+        Row(Modifier.fillMaxWidth().padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(122.dp, 112.dp)) {
+                AsyncImage(model = stay.image, contentDescription = "Foto del alojamiento: ${stay.title}", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(13.dp)))
+                IconButton(onClick = onFavorite, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(32.dp).background(Color.White.copy(alpha = .96f), CircleShape)) {
+                    Icon(if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, if (isFavorite) "Quitar de favoritos" else "Guardar en favoritos", tint = if (isFavorite) Coral else Ink, modifier = Modifier.size(19.dp))
                 }
             }
-            Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stay.title, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                Text(stay.location, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("${stay.beds} camas · ${stay.guests} huéspedes", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
-                Text(stay.ownerName, color = Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 3.dp))
+            Column(Modifier.weight(1f).padding(start = 12.dp, end = 4.dp)) {
+                Text(stay.title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = Ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Row(Modifier.padding(top = 5.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.LocationOn, null, tint = Muted, modifier = Modifier.size(14.dp)); Text(stay.location, color = Muted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                Text("${stay.beds} camas · ${stay.guests} huéspedes", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp), maxLines = 1)
                 Text("$${formatPrice(stay.price)} MXN / noche", color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
-                Text("Sin reseñas", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 3.dp))
+                Text("Publicado por ${stay.ownerName}", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 3.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            Icon(Icons.Default.ChevronRight, null, tint = Muted, modifier = Modifier.size(20.dp))
         }
     }
 }
+
 
 @Composable
 private fun StayDetails(
@@ -729,7 +732,11 @@ private fun StayDetails(
                 Text(stay.title, fontSize = 21.sp, fontWeight = FontWeight.Bold, color = Ink)
                 Text(stay.ownerName, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
                 Text(stay.location, color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
-                Text("${stay.guests} huéspedes · ${stay.beds} camas · ${stay.category}", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+                Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    DetailStat(Icons.Default.Bed, stay.beds.toString(), "Camas", Modifier.weight(1f))
+                    DetailStat(Icons.Default.People, stay.guests.toString(), "Huéspedes", Modifier.weight(1f))
+                    DetailStat(Icons.Default.Home, stay.category, "Tipo", Modifier.weight(1f))
+                }
                 HorizontalDivider(Modifier.padding(vertical = 14.dp), color = Color(0xFFE9EDF3))
                 Text("Descripción", color = Ink, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Text(stay.description, color = Muted, fontSize = 14.sp, lineHeight = 21.sp, modifier = Modifier.padding(top = 7.dp))
@@ -750,8 +757,8 @@ private fun StayDetails(
                 bookingMessage?.let { Text(it, color = if (it.startsWith("Solicitud enviada")) Color(0xFF237A57) else Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp)) }
                 Spacer(Modifier.height(12.dp))
                 if (isSignedIn) {
-                    Button(onClick = { onRequestBooking(checkIn, checkOut, guests) }, enabled = checkIn.isNotBlank() && checkOut.isNotBlank(), modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(14.dp)) {
-                        Text("Solicitar estancia en Alozena")
+                    Button(onClick = { onRequestBooking(checkIn, checkOut, guests) }, enabled = checkIn.isNotBlank() && checkOut.isNotBlank(), modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = Coral)) {
+                        Text("Solicitar estancia")
                     }
                 } else {
                     Button(onClick = onSignIn, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(14.dp)) { Text("Inicia sesión para solicitar") }
@@ -759,6 +766,15 @@ private fun StayDetails(
                 Text("Esta solicitud no es una reserva confirmada ni bloquea automáticamente las fechas. Alozena no procesa pagos.", Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp, bottom = 4.dp), color = Muted, fontSize = 11.sp)
             }
         }
+    }
+}
+
+@Composable
+private fun DetailStat(icon: androidx.compose.ui.graphics.vector.ImageVector, value: String, label: String, modifier: Modifier = Modifier) {
+    Column(modifier.clip(RoundedCornerShape(13.dp)).background(Color(0xFFF3F4F5)).padding(vertical = 11.dp, horizontal = 5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(icon, null, tint = Ink, modifier = Modifier.size(19.dp))
+        Text(value, color = Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+        Text(label, color = Muted, fontSize = 10.sp, maxLines = 1)
     }
 }
 
@@ -787,8 +803,14 @@ private fun HostListingPage(
         contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
     ) { selected -> photoUri = selected }
     var hostAttested by remember { mutableStateOf(false) }
-    Column(modifier.background(Color(0xFFF5F7FB)).verticalScroll(rememberScrollState()).padding(20.dp)) {
-        Text("Publicar alojamiento", fontSize = 23.sp, fontWeight = FontWeight.Bold, color = Ink)
+    var publishStep by remember { mutableIntStateOf(0) }
+    Column(modifier.background(Color(0xFFF6F6F5)).verticalScroll(rememberScrollState()).padding(18.dp)) {
+        Text("Publicar anuncio", fontSize = 23.sp, fontWeight = FontWeight.Bold, color = Ink)
+        Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            listOf("1  Detalles", "2  Fotos", "3  Precio").forEachIndexed { index, label ->
+                Text(label, color = if (publishStep == index) Ink else Muted, fontSize = 12.sp, fontWeight = if (publishStep == index) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(if (publishStep == index) Color.White else Color.Transparent).padding(horizontal = 10.dp, vertical = 8.dp))
+            }
+        }
         Text("Completa la información del lugar. Al enviar, se publica en Alozena bajo tu responsabilidad; la app no verifica físicamente la propiedad.", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp, bottom = 12.dp))
         if (isSignedIn) {
             Text("Tus publicaciones", Modifier.padding(top = 8.dp), color = Ink, fontWeight = FontWeight.SemiBold)
@@ -811,39 +833,50 @@ private fun HostListingPage(
             Text("Inicia sesión para crear una publicación vinculada a tu cuenta de anfitrión.", color = Muted, fontSize = 13.sp)
             Button(onClick = onSignIn, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("Iniciar sesión con Google") }
         } else {
-            OutlinedTextField(title, { title = it }, Modifier.fillMaxWidth(), label = { Text("Nombre real del alojamiento") }, singleLine = true)
-            OutlinedTextField(location, { location = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("Ciudad y zona") }, singleLine = true)
-            Text("Tipo de alojamiento", Modifier.padding(top = 12.dp), color = Ink, fontWeight = FontWeight.SemiBold)
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf("Casa", "Departamento", "Cabaña", "Habitación", "Otro").forEach { type ->
-                    FilterChip(selected = category == type, onClick = { category = type }, label = { Text(type) })
+            if (publishStep == 0) {
+                Text("Tipo de propiedad", color = Ink, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 7.dp))
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    listOf("Casa", "Departamento", "Habitación", "Otro").forEach { type ->
+                        FilterChip(selected = category == type, onClick = { category = type }, label = { Text(type) }, leadingIcon = { Icon(categoryIcon(type), null, modifier = Modifier.size(17.dp)) })
+                    }
                 }
+                OutlinedTextField(title, { title = it }, Modifier.fillMaxWidth().padding(top = 10.dp), label = { Text("Título del anuncio") }, placeholder = { Text("Ej. Casa en zona céntrica") }, singleLine = true, shape = RoundedCornerShape(13.dp))
+                OutlinedTextField(location, { location = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("Ciudad y zona") }, singleLine = true, shape = RoundedCornerShape(13.dp))
+                OutlinedTextField(description, { description = it }, Modifier.fillMaxWidth().heightIn(min = 110.dp).padding(top = 8.dp), label = { Text("Descripción real del alojamiento") }, placeholder = { Text("Describe tu propiedad...") }, shape = RoundedCornerShape(13.dp))
+                Button(onClick = { publishStep = 1 }, enabled = title.isNotBlank() && location.isNotBlank() && description.length >= 20, modifier = Modifier.fillMaxWidth().padding(top = 14.dp).height(50.dp), shape = RoundedCornerShape(14.dp)) { Text("Siguiente  →") }
+            } else if (publishStep == 1) {
+                Text("Fotos del alojamiento", color = Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text("Selecciona una foto real desde tu dispositivo.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                OutlinedButton(onClick = { photoPicker.launch(arrayOf("image/jpeg", "image/png", "image/webp")) }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp), shape = RoundedCornerShape(13.dp)) {
+                    Icon(Icons.Default.AddPhotoAlternate, null, modifier = Modifier.size(18.dp)); Text(if (photoUri == null) "  Elegir foto" else "  Cambiar foto")
+                }
+                photoUri?.let { selectedPhoto -> AsyncImage(model = selectedPhoto, contentDescription = "Vista previa de la foto elegida", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth().height(200.dp).padding(top = 10.dp).clip(RoundedCornerShape(14.dp))) }
+                Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = hostAttested, onCheckedChange = { hostAttested = it })
+                    Text("Confirmo que el alojamiento existe y tengo autorización para publicar estos datos y fotos.", color = Muted, fontSize = 11.sp, lineHeight = 15.sp)
+                }
+                Text("Alozena no verifica físicamente la propiedad.", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(start = 12.dp))
+                Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { publishStep = 0 }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(13.dp)) { Text("Atrás") }
+                    Button(onClick = { publishStep = 2 }, enabled = photoUri != null && hostAttested, modifier = Modifier.weight(1f), shape = RoundedCornerShape(13.dp)) { Text("Siguiente  →") }
+                }
+            } else {
+                Text("Precio y capacidad", color = Ink, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                OutlinedTextField(price, { price = it.filter(Char::isDigit) }, Modifier.fillMaxWidth().padding(top = 10.dp), label = { Text("Precio por noche (MXN)") }, singleLine = true, shape = RoundedCornerShape(13.dp))
+                OutlinedTextField(cleaningFee, { cleaningFee = it.filter(Char::isDigit) }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("Cargo de limpieza (MXN)") }, singleLine = true, shape = RoundedCornerShape(13.dp))
+                OutlinedTextField(securityDeposit, { securityDeposit = it.filter(Char::isDigit) }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("Depósito de seguridad (MXN)") }, singleLine = true, shape = RoundedCornerShape(13.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(guests, { guests = it.filter(Char::isDigit) }, Modifier.weight(1f).padding(top = 8.dp), label = { Text("Huéspedes") }, singleLine = true, shape = RoundedCornerShape(13.dp))
+                    OutlinedTextField(beds, { beds = it.filter(Char::isDigit) }, Modifier.weight(1f).padding(top = 8.dp), label = { Text("Camas") }, singleLine = true, shape = RoundedCornerShape(13.dp))
+                }
+                OutlinedButton(onClick = { publishStep = 1 }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), shape = RoundedCornerShape(13.dp)) { Text("Atrás") }
             }
-            OutlinedTextField(price, { price = it.filter(Char::isDigit) }, Modifier.fillMaxWidth(), label = { Text("Precio real por noche (MXN)") }, singleLine = true)
-        OutlinedTextField(cleaningFee, { cleaningFee = it.filter(Char::isDigit) }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("Cargo de limpieza (MXN, 0 si no aplica)") }, singleLine = true)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(guests, { guests = it.filter(Char::isDigit) }, Modifier.weight(1f), label = { Text("Huéspedes") }, singleLine = true)
-                OutlinedTextField(beds, { beds = it.filter(Char::isDigit) }, Modifier.weight(1f), label = { Text("Camas") }, singleLine = true)
-            }
-            OutlinedTextField(description, { description = it }, Modifier.fillMaxWidth().heightIn(min = 100.dp).padding(top = 8.dp), label = { Text("Descripción verídica del alojamiento") })
-            OutlinedButton(onClick = { photoPicker.launch(arrayOf("image/jpeg", "image/png", "image/webp")) }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                Icon(Icons.Default.AddPhotoAlternate, null, modifier = Modifier.size(18.dp))
-                Text(if (photoUri == null) " Elegir foto del alojamiento" else " Cambiar foto elegida")
-            }
-            photoUri?.let { selectedPhoto ->
-                AsyncImage(model = selectedPhoto, contentDescription = "Foto que seleccionaste para publicar", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(12.dp)).padding(top = 8.dp))
-            }
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = hostAttested, onCheckedChange = { hostAttested = it })
-                Text("Confirmo que el alojamiento existe y que tengo autorización para publicar estos datos y fotos.", color = Muted, fontSize = 11.sp, lineHeight = 15.sp)
-            }
-            Text("Alozena no verifica físicamente la propiedad ni la titularidad de la foto; esta confirmación queda vinculada a tu cuenta.", color = Muted, fontSize = 10.sp)
-            Button(
+            if (publishStep == 2) Button(
                 onClick = { photoUri?.let { selectedPhoto -> onPublish(title, location, category, price.toIntOrNull() ?: 0, cleaningFee.toIntOrNull() ?: 0, securityDeposit.toIntOrNull() ?: 0, guests.toIntOrNull() ?: 0, beds.toIntOrNull() ?: 0, description, selectedPhoto) } },
-                enabled = !isLoading && hostAttested && photoUri != null && title.isNotBlank() && location.isNotBlank() && price.isNotBlank() && description.length >= 20,
+                enabled = publishStep == 2 && !isLoading && hostAttested && photoUri != null && title.isNotBlank() && location.isNotBlank() && price.isNotBlank() && description.length >= 20,
                 modifier = Modifier.fillMaxWidth().padding(top = 14.dp).height(50.dp), shape = RoundedCornerShape(14.dp)
             ) {
-                if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) else Text("Publicar alojamiento en Alozena")
+                if (isLoading) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) else Text("Publicar anuncio")
             }
         }
         message?.let { Text(it, color = if (it.startsWith("Publicación enviada")) Color(0xFF237A57) else Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp)) }
