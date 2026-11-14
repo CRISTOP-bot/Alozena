@@ -587,8 +587,7 @@ private fun AlozenaHomeHeader(
             Text("Alozena", Modifier.weight(1f).padding(start = 8.dp), fontWeight = FontWeight.Bold, fontSize = 21.sp, color = Ink)
             IconButton(onClick = onOpenTerms) { Icon(Icons.Default.Settings, "Configuración", tint = Ink) }
         }
-        Text("Encuentra tu
-hogar ideal", Modifier.padding(start = 20.dp, top = 6.dp), fontSize = 29.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold, color = Ink)
+        Text("Encuentra tu\\nhogar ideal", Modifier.padding(start = 20.dp, top = 6.dp), fontSize = 29.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold, color = Ink)
         Text("Renta, busca y vive mejor.", Modifier.padding(start = 20.dp, top = 6.dp, bottom = 14.dp), fontSize = 14.sp, color = Muted)
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(52.dp).clip(RoundedCornerShape(17.dp)).background(Color.White).padding(horizontal = 14.dp),
