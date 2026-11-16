@@ -54,7 +54,7 @@ internal fun AlozenaApp() {
     var hostListings by remember { mutableStateOf<List<Stay>>(emptyList()) }
     var bookingMessage by remember { mutableStateOf<String?>(null) }
     var bookingMessageStayId by remember { mutableStateOf<String?>(null) }
-    val bookingInProgressIds = remember { mutableStateSetOf<String>() }
+    var bookingInProgress by remember { mutableStateOf(false) }
     val bookingSubmissionIds = remember { mutableSetOf<String>() }
     var favoritesLoaded by remember { mutableStateOf(false) }
     val backendState = remember { EstadiaRepository.backendState(context) }
@@ -498,7 +498,7 @@ internal fun AlozenaApp() {
         onRequestBooking = { checkIn, checkOut, guestCount ->
             scope.launch {
                 if (!bookingSubmissionIds.add(stay.firestoreId)) return@launch
-                bookingInProgressIds.add(stay.firestoreId)
+                bookingInProgress = true
                 bookingMessageStayId = stay.firestoreId
                 bookingMessage = "Enviando solicitud…"
                 try {
@@ -516,12 +516,12 @@ internal fun AlozenaApp() {
                     }
                 } finally {
                     bookingSubmissionIds.remove(stay.firestoreId)
-                    bookingInProgressIds.remove(stay.firestoreId)
+                    bookingInProgress = false
                 }
             }
         },
         bookingMessage = bookingMessage.takeIf { bookingMessageStayId == stay.firestoreId },
-        isBookingInProgress = stay.firestoreId in bookingInProgressIds,
+        isBookingInProgress = bookingInProgress,
         onSignIn = ::startGoogleSignIn
     ) }
     if (showBookingRequests) {
