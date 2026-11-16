@@ -19,13 +19,14 @@ import androidx.compose.ui.unit.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.cristopbot.estadia.data.*
 import com.cristopbot.estadia.ui.AccountMessageKind
+import com.cristopbot.estadia.ui.SettingsDialog
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.auth.*
 import kotlinx.coroutines.*
 
 @Composable
-internal fun AlozenaApp() {
+internal fun AlozenaApp(textScale: Float, onTextScaleChange: (Float) -> Unit) {
     val context = LocalContext.current
     var query by remember { mutableStateOf("") }
     val guestFavoritePreferences = remember(context) { context.getSharedPreferences("alozena_favorite_listing_ids", Context.MODE_PRIVATE) }
@@ -37,6 +38,7 @@ internal fun AlozenaApp() {
     var selectedStay by remember { mutableStateOf<Stay?>(null) }
     var showBookingRequests by remember { mutableStateOf(false) }
     var showFilters by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
     var sortBy by remember { mutableStateOf(StaySortOption.RELEVANCE) }
     val categories = listOf("Todo", "Casa", "Departamento", "Cabaña", "Habitación", "Otro")
     val categoryFilters = categories
@@ -59,6 +61,7 @@ internal fun AlozenaApp() {
     var favoritesLoaded by remember { mutableStateOf(false) }
     val backendState = remember { EstadiaRepository.backendState(context) }
     var remoteStays by remember { mutableStateOf<List<Stay>?>(null) }
+    val screenConfig = rememberPublicScreenConfig(context, backendState == BackendState.Ready, preferences, scope)
     var remoteFavoriteIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var backendMessage by remember { mutableStateOf<String?>(null) }
     var accountMessage by remember { mutableStateOf<String?>(null) }
@@ -132,11 +135,8 @@ internal fun AlozenaApp() {
         }
     }
     fun startBookingRequests() {
-        if (userEmail == null) {
-            accountMessage = "Inicia sesión para ver solicitudes de estancia."
-        } else {
-            showBookingRequests = true
-        }
+        if (userEmail == null) accountMessage = "Inicia sesión para ver solicitudes de estancia."
+        else showBookingRequests = true
     }
 
     fun startGoogleSignIn() {
@@ -370,6 +370,7 @@ internal fun AlozenaApp() {
                 statusKind = accountMessageKind,
                 onDismissMessage = { accountMessage = null },
                 isLoading = signInInProgress,
+                onOpenSettings = { showSettingsDialog = true },
                 onOpenTerms = { showTermsDialog = true },
                 onOpenFavorites = { selectedTab = 1 },
                 onOpenTrips = ::startBookingRequests,
@@ -383,112 +384,35 @@ internal fun AlozenaApp() {
                     accountMessage = "Se cerró la sesión de Alozena."
                 }
             )
-            else -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().background(Color(0xFFF6F6F5)).padding(padding),
-                    contentPadding = PaddingValues(bottom = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    if (isFavoritesPage) {
-                        item {
-                            Row(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 20.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Favorite, null, tint = Coral, modifier = Modifier.size(24.dp))
-                                Text("Favoritos", Modifier.weight(1f).padding(start = 10.dp), color = Ink, fontWeight = FontWeight.Bold, fontSize = 21.sp)
-                                if (effectiveFavorites.isNotEmpty()) IconButton(onClick = ::clearFavorites) { Icon(Icons.Default.DeleteOutline, "Quitar todos los favoritos", tint = Muted) }
-                            }
-                        }
-                    } else if (selectedTab == 4) {
-                        item {
-                            SearchPageHeader(query = query, onQuery = { query = it }, onOpenFilters = { showFilters = true })
-                        }
-                    } else {
-                        item {
-                            AlozenaHomeHeader(
-                                query = query,
-                                selectedCategory = category,
-                                onQuery = { query = it },
-                                onOpenTerms = { showTermsDialog = true },
-                                onCategory = { selected -> category = selected },
-                                onDestination = { destination -> query = destination },
-                                onPublish = { selectedTab = 2 },
-                                destinations = liveListings.map { it.location }.distinct().take(8)
-                            )
-                        }
-                    }
-                    backendMessage?.let { message ->
-                        item {
-                            Surface(
-                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color(0xFFF0F3F6)
-                            ) {
-                                Text(message, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp))
-                            }
-                        }
-                    }
-                    item {
-                        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)) {
-                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(onClick = { showFilters = true }, shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 13.dp, vertical = 7.dp)) {
-                                    Icon(Icons.Default.Tune, null, modifier = Modifier.size(16.dp)); Text(" Precio y tipo", fontSize = 12.sp)
-                                }
-                                OutlinedButton(onClick = { showFilters = true }, shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 13.dp, vertical = 7.dp)) { Text("Tipo · ${if (category == "Todo") "Todos" else category}", fontSize = 12.sp) }
-                            }
-                            Spacer(Modifier.height(10.dp))
-                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                listOf(
-                                    StaySortOption.RELEVANCE to "Relevancia",
-                                    StaySortOption.PRICE_ASC to "Precio ↓",
-                                    StaySortOption.PRICE_DESC to "Precio ↑",
-                                    StaySortOption.NEWEST to "Nuevos"
-                                ).forEach { (option, label) ->
-                                    FilterChip(
-                                        selected = sortBy == option,
-                                        onClick = { sortBy = option },
-                                        label = { Text(label, fontSize = 12.sp) },
-                                        shape = RoundedCornerShape(12.dp),
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = Coral.copy(alpha = 0.12f),
-                                            containerColor = Color.White,
-                                            selectedLabelColor = Coral,
-                                            labelColor = Ink
-                                        )
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    item {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (isFavoritesPage) "Tus favoritos" else if (selectedTab == 4) "Resultados de búsqueda" else "Destacados", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 19.sp, color = Ink)
-                            Text("${results.size} publicaciones", color = Muted, fontSize = 12.sp)
-                        }
-                    }
-                    if (!favoritesLoaded) {
-                        item { Box(Modifier.fillMaxWidth().padding(vertical = 52.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Coral) } }
-                    } else if (results.isEmpty()) {
-                        item {
-                            Column(Modifier.fillMaxWidth().padding(vertical = 54.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(if (isFavoritesPage) Icons.Default.FavoriteBorder else Icons.Default.Search, null, tint = Muted, modifier = Modifier.size(42.dp))
-                                Spacer(Modifier.height(12.dp))
-                                Text(if (isFavoritesPage) "Aún no tienes favoritos" else "Todavía no hay publicaciones", fontWeight = FontWeight.SemiBold, color = Ink)
-                                Text(if (isFavoritesPage) "Guarda un alojamiento publicado para verlo aquí." else "Sé el primero en publicar un alojamiento real en Alozena.", color = Muted, fontSize = 13.sp)
-                                if (!isFavoritesPage) TextButton(onClick = { selectedTab = 2 }) { Text("Publicar alojamiento", color = Coral) }
-                            }
-                        }
-                    } else {
-                        items(results, key = { it.id }) { stay ->
-                            StayCard(
-                                stay = stay,
-                                isFavorite = stay.id in effectiveFavorites,
-                                onFavorite = { toggleFavorite(stay) },
-                                onClick = { selectedStay = stay },
-                                modifier = Modifier.padding(horizontal = 20.dp)
-                            )
-                        }
-                    }
-                }
-            }
+            else -> BrowsePage(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                model = BrowsePageModel(
+                    isFavoritesPage = isFavoritesPage,
+                    isSearchPage = selectedTab == 4,
+                    query = query,
+                    category = category,
+                    favorites = effectiveFavorites,
+                    sortBy = sortBy,
+                    results = results,
+                    favoritesLoaded = favoritesLoaded,
+                    backendMessage = backendMessage,
+                    homeTitle = screenConfig.config?.homeTitle,
+                    homeSubtitle = screenConfig.config?.homeSubtitle,
+                    homeAnnouncement = screenConfig.config?.homeAnnouncement,
+                    destinations = liveListings.map { it.location }.distinct().take(8)
+                ),
+                actions = BrowsePageActions(
+                    onQueryChange = { query = it },
+                    onCategoryChange = { category = it },
+                    onOpenSettings = { showSettingsDialog = true },
+                    onOpenFilters = { showFilters = true },
+                    onPublish = { selectedTab = 2 },
+                    onClearFavorites = ::clearFavorites,
+                    onSortChange = { sortBy = it },
+                    onToggleFavorite = ::toggleFavorite,
+                    onSelectStay = { selectedStay = it }
+                )
+            )
         }
     }
     selectedStay?.let { stay -> StayDetails(
@@ -539,6 +463,24 @@ internal fun AlozenaApp() {
             title = { Text("Ayuda de Alozena") },
             text = { Text("Alozena muestra únicamente publicaciones enviadas por anfitriones. Las solicitudes se gestionan dentro de la app y no se procesan pagos.") },
             confirmButton = { TextButton(onClick = { showHelpDialog = false }) { Text("Entendido") } }
+        )
+    }
+    if (showSettingsDialog) {
+        SettingsDialog(
+            backendReady = backendState == BackendState.Ready,
+            realtimeUpdatesEnabled = screenConfig.realtimeUpdatesEnabled,
+            onRealtimeUpdatesChange = screenConfig.onRealtimeUpdatesChange,
+            textScale = textScale,
+            onTextScaleChange = onTextScaleChange,
+            screenSyncStatus = screenConfig.status,
+            isRefreshing = screenConfig.isRefreshing,
+            settingsNotice = screenConfig.config?.settingsNotice,
+            onRefreshScreens = screenConfig.onRefresh,
+            onOpenTerms = {
+                showSettingsDialog = false
+                showTermsDialog = true
+            },
+            onDismiss = { showSettingsDialog = false }
         )
     }
     if (showFilters) {

@@ -41,6 +41,11 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'hostRespondedAt']);
     }
 
+    match /appConfig/{configId} {
+      allow get: if configId == 'publicScreens';
+      allow list, write: if false;
+    }
+
     match /stays/{stayId} {
       allow read: if resource.data.published == true || (signedIn() && resource.data.hostUid == request.auth.uid);
       allow create: if signedIn()

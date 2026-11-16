@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "revision": 1,
+  "screens": {
+    "home": {
+      "title": "Encuentra tu próxima estancia",
+      "subtitle": "Explora publicaciones reales de anfitriones.",
+      "announcement": {
+        "title": "Novedades",
+        "message": "Consulta las nuevas publicaciones de Alozena."
+      }
+    },
+    "settings": {
+      "notice": "Las pantallas se actualizan desde Firebase cuando hay conexión."
+    }
+  }
+}

@@ -2,6 +2,7 @@
 
 - [Acceso con Google y configuración Firebase](./login.md)
 - [Protección de configuración y credenciales](./security.md)
+- [Actualizaciones remotas de pantallas](./live-screen-updates.md)
 
 ## Desarrollo
 

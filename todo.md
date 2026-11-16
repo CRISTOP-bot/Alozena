@@ -12,6 +12,10 @@
 - [ ] Definir un flujo de revisión y reporte de publicaciones antes de ampliar el catálogo.
 - [ ] Confirmar reglas, índices y configuración de Storage en Firebase de producción.
 
+## Pantallas remotas
+
+- [ ] Desplegar las reglas actualizadas y crear `appConfig/publicScreens` en Firebase de producción para activar la sincronización en tiempo real.
+
 ## Solicitudes y confianza
 
 - [ ] Validar disponibilidad y evitar solicitudes solapadas antes de llamar “reserva” al flujo.

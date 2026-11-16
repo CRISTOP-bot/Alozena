@@ -46,6 +46,18 @@ test('published listings are public; unpublished listings stay private', async (
   await assertFails(getDoc(doc(env.authenticatedContext('guest').firestore(), 'stays/private-stay')));
 });
 
+test('public screen config is readable but only server administrators can change it', async () => {
+  await env.withSecurityRulesDisabled(async c => setDoc(doc(c.firestore(), 'appConfig/publicScreens'), {
+    schemaVersion: 1,
+    revision: 1,
+    screens: { home: { title: 'Alozena' } }
+  }));
+  const guest = env.unauthenticatedContext().firestore();
+  await assertSucceeds(getDoc(doc(guest, 'appConfig/publicScreens')));
+  await assertFails(setDoc(doc(guest, 'appConfig/publicScreens'), { schemaVersion: 1, revision: 2 }));
+  await assertFails(getDocs(collection(guest, 'appConfig')));
+});
+
 test('a host cannot change publication status or rating fields from the app', async () => {
   await seedStay();
   const host = env.authenticatedContext('host-1').firestore();

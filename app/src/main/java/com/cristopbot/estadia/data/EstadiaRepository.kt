@@ -6,7 +6,9 @@ import com.cristopbot.estadia.Stay
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.Source
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
 import java.text.Normalizer
@@ -37,6 +39,29 @@ class EstadiaRepository private constructor(
 
     fun signOut() = auth.signOut()
     fun currentUid(): String? = auth.currentUser?.uid
+
+    fun listenPublicScreenConfig(
+        onUpdate: (PublicScreenConfig?) -> Unit,
+        onError: (Exception) -> Unit
+    ): ListenerRegistration = db.collection("appConfig").document("publicScreens")
+        .addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                onError(error)
+            } else {
+                try {
+                    onUpdate(snapshot?.takeIf { it.exists() }?.let { PublicScreenConfig.from(it.data.orEmpty()) })
+                } catch (error: IllegalArgumentException) {
+                    onError(error)
+                } catch (error: IllegalStateException) {
+                    onError(error)
+                }
+            }
+        }
+
+    suspend fun fetchPublicScreenConfig(): PublicScreenConfig? {
+        val snapshot = db.collection("appConfig").document("publicScreens").get(Source.SERVER).await()
+        return snapshot.takeIf { it.exists() }?.let { PublicScreenConfig.from(it.data.orEmpty()) }
+    }
 
     suspend fun searchMyListings(): List<Stay> {
         val uid = currentUid() ?: error("Inicia sesión para ver tus publicaciones")

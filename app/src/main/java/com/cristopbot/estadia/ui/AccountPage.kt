@@ -64,6 +64,7 @@ fun AccountPage(
     accountName: String? = null,
     listingCount: Int = 0,
     favoriteCount: Int = 0,
+    onOpenSettings: () -> Unit = {},
     onOpenTerms: () -> Unit = {},
     onOpenListings: () -> Unit = {},
     onOpenFavorites: () -> Unit = {},
@@ -78,7 +79,7 @@ fun AccountPage(
     ) {
         Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Perfil", Modifier.weight(1f), fontSize = 23.sp, fontWeight = FontWeight.Bold, color = Ink)
-            IconButton(onClick = onOpenTerms) { Icon(Icons.Default.Settings, contentDescription = "Configuración", tint = Ink) }
+            IconButton(onClick = onOpenSettings) { Icon(Icons.Default.Settings, contentDescription = "Configuración", tint = Ink) }
         }
         Card(
             Modifier.fillMaxWidth().padding(top = 5.dp),
@@ -123,7 +124,8 @@ fun AccountPage(
             Column(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
                 ProfileAction(Icons.Default.BookmarkBorder, "Mis publicaciones", "Administra tus alojamientos", onOpenTrips)
                 ProfileAction(Icons.Default.FavoriteBorder, "Mis favoritos", "Alojamientos que guardaste", onOpenFavorites)
-                ProfileAction(Icons.Default.Settings, "Configuración", "Términos y privacidad", onOpenTerms)
+                ProfileAction(Icons.Default.Settings, "Configuración", "Pantallas y tamaño de texto", onOpenSettings)
+                ProfileAction(Icons.Default.HelpOutline, "Términos y privacidad", "Información legal de Alozena", onOpenTerms)
                 ProfileAction(Icons.Default.HelpOutline, "Ayuda y soporte", "Información de Alozena", onOpenHelp)
                 if (userEmail != null) ProfileAction(Icons.Default.Logout, "Cerrar sesión", "Desconectar esta cuenta", onSignOut)
             }
