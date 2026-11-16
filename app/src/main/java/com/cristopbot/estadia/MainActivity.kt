@@ -763,10 +763,24 @@ private fun StayCard(stay: Stay, isFavorite: Boolean, onFavorite: () -> Unit, on
                 }
             }
             Column(Modifier.weight(1f).padding(start = 12.dp, end = 4.dp)) {
+                if (stay.badge.isNotBlank()) {
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = Color(0xFFEAF3F8),
+                        tonalElevation = 0.dp,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    ) {
+                        Text(stay.badge, color = Coral, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                    }
+                }
                 Text(stay.title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = Ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Row(Modifier.padding(top = 5.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.LocationOn, null, tint = Muted, modifier = Modifier.size(14.dp)); Text(stay.location, color = Muted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 Text("${stay.beds} camas · ${stay.guests} huéspedes", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp), maxLines = 1)
-                Text("$${formatPrice(stay.price)} MXN / noche", color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+                    Icon(Icons.Default.Star, null, tint = Color(0xFFB68A2C), modifier = Modifier.size(13.dp))
+                    Text(stay.rating, color = Muted, fontSize = 10.sp, modifier = Modifier.padding(start = 4.dp))
+                }
+                Text("$${formatPrice(stay.price)} MXN / noche", color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
                 Text("Publicado por ${stay.ownerName}", color = Muted, fontSize = 10.sp, modifier = Modifier.padding(top = 3.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Icon(Icons.Default.ChevronRight, null, tint = Muted, modifier = Modifier.size(20.dp))
