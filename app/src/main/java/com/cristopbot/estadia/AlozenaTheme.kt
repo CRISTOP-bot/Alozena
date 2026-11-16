@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Density
 
 internal val Coral = Color(0xFF2F5B73)
 internal val Ink = Color(0xFF172233)
@@ -18,7 +19,9 @@ internal val BorderSoft = Color(0xFFE3E8EE)
 @Composable
 internal fun AlozenaTheme(textScale: Float, content: @Composable () -> Unit) {
     val systemDensity = LocalDensity.current
-    CompositionLocalProvider(LocalDensity provides systemDensity.copy(fontScale = systemDensity.fontScale * textScale)) {
+    CompositionLocalProvider(
+        LocalDensity provides Density(systemDensity.density, systemDensity.fontScale * textScale)
+    ) {
         MaterialTheme(
             colorScheme = lightColorScheme(
                 primary = Coral,
