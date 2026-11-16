@@ -1,6 +1,8 @@
 package com.cristopbot.estadia
 
+import com.cristopbot.estadia.data.SeedData
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class StayFiltersTest {
@@ -11,6 +13,12 @@ class StayFiltersTest {
 
     @Test fun liveCatalogHasNoPreloadedHomes() {
         assertEquals(emptyList<Stay>(), StayCatalog.stays)
+    }
+
+    @Test fun fallbackListingsAreClearlyMarkedAsDemoOnly() {
+        assertEquals(6, SeedData.stays.size)
+        assertTrue(SeedData.stays.all { it.isDemo })
+        assertTrue(SeedData.stays.all { it.ownerName == "Anfitrión de ejemplo" })
     }
 
     @Test fun filtersPublishedItemsByCityAndAccentNormalization() {

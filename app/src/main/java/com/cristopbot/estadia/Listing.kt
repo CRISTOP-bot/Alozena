@@ -20,7 +20,8 @@ data class Stay(
     val firestoreId: String = "",
     val hostUid: String = "",
     val reviewCount: Int = 0,
-    val ownerName: String = "Anfitrión Alozena"
+    val ownerName: String = "Anfitrión Alozena",
+    val isDemo: Boolean = false
 )
 
 /** Alozena starts with an empty catalog: only listings submitted to its backend appear. */

@@ -2,7 +2,7 @@ package com.cristopbot.estadia.data
 
 import com.cristopbot.estadia.Stay
 
-/** Demo catalog used when Firebase is not configured yet. This is intentionally small and realistic. */
+/** Fictional sample listings shown only to demonstrate the app when Firebase is not configured. */
 object SeedData {
     val stays: List<Stay> = listOf(
         Stay(
@@ -15,14 +15,15 @@ object SeedData {
             securityDeposit = 4000,
             rating = "Sin reseñas",
             image = "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80",
-            badge = "Top host",
+            badge = "",
             description = "Casa tranquila con jardín, terraza y vista a la montaña. Ideal para descansar y trabajar desde un entorno sereno.",
             beds = 2,
             guests = 4,
             firestoreId = "seed-valle-bravo",
             hostUid = "seed-valle-host",
             reviewCount = 0,
-            ownerName = "Anita G."
+            ownerName = "Anfitrión de ejemplo",
+            isDemo = true
         ),
         Stay(
             id = 1002,
@@ -34,14 +35,15 @@ object SeedData {
             securityDeposit = 5000,
             rating = "Sin reseñas",
             image = "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=80",
-            badge = "Cerca del centro",
+            badge = "",
             description = "Loft con cocina equipada, dormitorio amplio y excelente acceso a restaurantes, cafés y transporte.",
             beds = 1,
             guests = 2,
             firestoreId = "seed-cdmx-loft",
             hostUid = "seed-cdmx-host",
             reviewCount = 0,
-            ownerName = "Gabriel T."
+            ownerName = "Anfitrión de ejemplo",
+            isDemo = true
         ),
         Stay(
             id = 1003,
@@ -53,14 +55,15 @@ object SeedData {
             securityDeposit = 3000,
             rating = "Sin reseñas",
             image = "https://images.unsplash.com/photo-1445019980597-93fa8acb246c?auto=format&fit=crop&w=1200&q=80",
-            badge = "Naturaleza",
+            badge = "",
             description = "Cabaña con chimenea, vista al bosque y patio exterior para desayunos y lectura tranquila.",
             beds = 2,
             guests = 3,
             firestoreId = "seed-puebla-cabana",
             hostUid = "seed-puebla-host",
             reviewCount = 0,
-            ownerName = "Luz M."
+            ownerName = "Anfitrión de ejemplo",
+            isDemo = true
         ),
         Stay(
             id = 1004,
@@ -72,14 +75,15 @@ object SeedData {
             securityDeposit = 2000,
             rating = "Sin reseñas",
             image = "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=80",
-            badge = "Muy solicitado",
+            badge = "",
             description = "Habitación privada con balcón, ventilación natural y acceso a cocina compartida en una zona tranquila.",
             beds = 1,
             guests = 2,
             firestoreId = "seed-oaxaca-room",
             hostUid = "seed-oaxaca-host",
             reviewCount = 0,
-            ownerName = "Sandra P."
+            ownerName = "Anfitrión de ejemplo",
+            isDemo = true
         ),
         Stay(
             id = 1005,
@@ -91,14 +95,15 @@ object SeedData {
             securityDeposit = 4200,
             rating = "Sin reseñas",
             image = "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=1200&q=80",
-            badge = "Familias",
+            badge = "",
             description = "Hermoso departamento con dos dormitorios, sala luminosa y fácil acceso a parques y centros culturales.",
             beds = 2,
             guests = 4,
             firestoreId = "seed-merida-depto",
             hostUid = "seed-merida-host",
             reviewCount = 0,
-            ownerName = "Marco A."
+            ownerName = "Anfitrión de ejemplo",
+            isDemo = true
         ),
         Stay(
             id = 1006,
@@ -110,14 +115,15 @@ object SeedData {
             securityDeposit = 6000,
             rating = "Sin reseñas",
             image = "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80",
-            badge = "Playa",
+            badge = "",
             description = "Casa con terraza, comedor exterior y acceso rápido a la zona costera más tranquila de la región.",
             beds = 3,
             guests = 5,
             firestoreId = "seed-puerto-escondido",
             hostUid = "seed-puerto-host",
             reviewCount = 0,
-            ownerName = "Renata C."
+            ownerName = "Anfitrión de ejemplo",
+            isDemo = true
         )
     )
 }

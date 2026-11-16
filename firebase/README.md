@@ -27,7 +27,7 @@ La selección local `.firebaserc` no se versiona. El despliegue real solo se com
 
 ## Inventario y límites
 
-`seed-stays.example.json` incluye ejemplos públicos y realistas para un catálogo de demostración. Se pueden cargar en Firestore en un proyecto de pruebas y sirven para mostrar la app con alojamientos reales antes de que un anfitrión publique su propio contenido. Aunque se usan imágenes y tarifas de ejemplo, deben sustituirse por datos autorizados antes de pasar a producción.
+`seed-stays.example.json` está vacío intencionalmente: no hay datos reales de anfitriones autorizados para poblar Firestore. No cargues anuncios ficticios en producción. Para tener publicaciones reales, cada anfitrión debe autenticarse y enviar su propio anuncio y fotos autorizadas desde la app.
 
 ## Protección de credenciales
 
