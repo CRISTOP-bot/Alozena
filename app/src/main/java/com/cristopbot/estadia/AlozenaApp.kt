@@ -2,13 +2,10 @@ package com.cristopbot.estadia
 
 import android.app.Activity
 import android.content.Context
-import android.net.Uri
 import android.util.Log
-import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
-import androidx.compose.foundation.text.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -16,11 +13,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import com.cristopbot.estadia.data.*
 import com.cristopbot.estadia.ui.AccountMessageKind
 import com.google.firebase.FirebaseApp
+import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.auth.*
 import kotlinx.coroutines.*
 
