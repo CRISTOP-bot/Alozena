@@ -38,4 +38,24 @@ class StayFiltersTest {
         val descending = StayFilters.filter(listings, "", "Todo", false, emptySet(), StaySortOption.PRICE_DESC).map { it.title }
         assertEquals(listOf("Casa del Lago", "Loft Centro"), descending)
     }
+
+    @Test fun sortsNewestByCreationTimeInsteadOfDocumentId() {
+        val datedListings = listOf(
+            listings[0].copy(createdAtMillis = 200L),
+            listings[1].copy(createdAtMillis = 300L)
+        )
+        val newestFirst = StayFilters.filter(
+            datedListings, "", "Todo", false, emptySet(), StaySortOption.NEWEST
+        ).map { it.title }
+        assertEquals(listOf("Loft Centro", "Casa del Lago"), newestFirst)
+    }
+
+    @Test fun resolvesGuestFavoritesFromLocalAndFirestoreIds() {
+        val favorites = StayFilters.resolveGuestFavorites(
+            listings,
+            localIds = setOf(1),
+            firestoreIds = setOf("id-loft", "deleted-listing")
+        )
+        assertEquals(setOf(1, 2), favorites)
+    }
 }

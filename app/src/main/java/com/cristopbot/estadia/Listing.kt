@@ -21,7 +21,8 @@ data class Stay(
     val hostUid: String = "",
     val reviewCount: Int = 0,
     val ownerName: String = "Anfitrión Alozena",
-    val isDemo: Boolean = false
+    val isDemo: Boolean = false,
+    val createdAtMillis: Long = 0L
 )
 
 /** Alozena starts with an empty catalog: only listings submitted to its backend appear. */
@@ -59,7 +60,15 @@ object StayFilters {
             StaySortOption.RELEVANCE -> filtered
             StaySortOption.PRICE_ASC -> filtered.sortedBy { it.price }
             StaySortOption.PRICE_DESC -> filtered.sortedByDescending { it.price }
-            StaySortOption.NEWEST -> filtered.sortedByDescending { it.id }
+            StaySortOption.NEWEST -> filtered.sortedWith(
+                compareByDescending<Stay> { it.createdAtMillis }.thenByDescending { it.id }
+            )
         }
     }
+
+    fun resolveGuestFavorites(stays: List<Stay>, localIds: Set<Int>, firestoreIds: Set<String>): Set<Int> =
+        stays.asSequence()
+            .filter { it.id in localIds || it.firestoreId in firestoreIds }
+            .map { it.id }
+            .toSet()
 }

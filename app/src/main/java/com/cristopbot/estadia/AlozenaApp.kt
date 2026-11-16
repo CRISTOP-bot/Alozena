@@ -53,18 +53,12 @@ internal fun AlozenaApp() {
     var publishMessage by remember { mutableStateOf<String?>(null) }
     var hostListings by remember { mutableStateOf<List<Stay>>(emptyList()) }
     var bookingMessage by remember { mutableStateOf<String?>(null) }
+    var bookingMessageStayId by remember { mutableStateOf<String?>(null) }
+    val bookingInProgressIds = remember { mutableStateSetOf<String>() }
+    val bookingSubmissionIds = remember { mutableSetOf<String>() }
     var favoritesLoaded by remember { mutableStateOf(false) }
     val backendState = remember { EstadiaRepository.backendState(context) }
     var remoteStays by remember { mutableStateOf<List<Stay>?>(null) }
-    LaunchedEffect(localFavoritesDb, remoteStays) {
-        withContext(Dispatchers.IO) { localFavoritesDb.readFavorites() }
-        val savedIds = guestFavoritePreferences.getStringSet("firestore_ids", emptySet()).orEmpty()
-        guestFavoriteFirestoreIds = savedIds
-        if (remoteStays != null || backendState == BackendState.NotConfigured) {
-            favorites = remoteStays.orEmpty().filter { it.firestoreId in savedIds }.map { it.id }.toSet()
-            favoritesLoaded = true
-        }
-    }
     var remoteFavoriteIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var backendMessage by remember { mutableStateOf<String?>(null) }
     var accountMessage by remember { mutableStateOf<String?>(null) }
@@ -73,6 +67,19 @@ internal fun AlozenaApp() {
         if (backendState == BackendState.Ready) runCatching { FirebaseAuth.getInstance(FirebaseApp.getInstance()) }.getOrNull() else null
     }
     var userEmail by remember(firebaseAuth) { mutableStateOf(firebaseAuth?.currentUser?.email) }
+    LaunchedEffect(localFavoritesDb, remoteStays, userEmail) {
+        val localIds = withContext(Dispatchers.IO) { localFavoritesDb.readFavorites() }
+        val savedIds = guestFavoritePreferences.getStringSet("firestore_ids", emptySet()).orEmpty()
+        guestFavoriteFirestoreIds = savedIds
+        if (remoteStays != null || backendState == BackendState.NotConfigured) {
+            favorites = StayFilters.resolveGuestFavorites(remoteStays.orEmpty(), localIds, savedIds)
+            favoritesLoaded = true
+        }
+    }
+    LaunchedEffect(selectedStay?.firestoreId) {
+        bookingMessage = null
+        bookingMessageStayId = selectedStay?.firestoreId
+    }
     LaunchedEffect(userEmail) {
         if (userEmail != null && !hasCompletedWelcome) {
             preferences.edit().putBoolean("welcome_completed", true).apply()
@@ -200,16 +207,29 @@ internal fun AlozenaApp() {
 
     fun clearFavorites() {
         val savedIds = effectiveFavorites.toList()
-        val guestSavedFirestoreIds = guestFavoriteFirestoreIds.toList()
+        val isSignedIn = userEmail != null
+        val firestoreIdsToRemove = liveListings.filter { it.id in savedIds }.map { it.firestoreId }
         favorites = emptySet()
         guestFavoriteFirestoreIds = emptySet()
         guestFavoritePreferences.edit().putStringSet("firestore_ids", emptySet()).apply()
         scope.launch(Dispatchers.IO) { savedIds.forEach { localFavoritesDb.setFavorite(it, false) } }
-        if (backendState == BackendState.Ready && userEmail != null) {
+        if (backendState == BackendState.Ready && isSignedIn) {
             scope.launch {
-                val savedFirestoreIds = if (userEmail == null) guestSavedFirestoreIds else liveListings.filter { it.id in savedIds }.map { it.firestoreId }
-                savedFirestoreIds.forEach { id -> runCatching { EstadiaRepository.create(context).setFavorite(id, false) } }
-                remoteFavoriteIds = emptySet()
+                val repository = EstadiaRepository.create(context)
+                var failedToRemoveFavorite = false
+                val removedIds = mutableSetOf<String>()
+                firestoreIdsToRemove.forEach { id ->
+                    try {
+                        repository.setFavorite(id, false)
+                        removedIds.add(id)
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (error: Exception) {
+                        failedToRemoveFavorite = true
+                    }
+                }
+                remoteFavoriteIds = remoteFavoriteIds - removedIds
+                if (failedToRemoveFavorite) backendMessage = "No se pudieron quitar algunos favoritos. Inténtalo de nuevo."
             }
         }
     }
@@ -310,10 +330,31 @@ internal fun AlozenaApp() {
                     scope.launch {
                         publishingInProgress = true
                         publishMessage = null
-                        runCatching { EstadiaRepository.create(context).publishListing(title, location, type, price, cleaningFee, securityDeposit, guests, beds, description, photoUri) }
-                            .onSuccess { id -> publishMessage = "Publicación enviada a Alozena (ID $id). Es una declaración del anfitrión; Alozena no verificó físicamente el alojamiento."; remoteStays = EstadiaRepository.create(context).searchStays(query, category) }
-                            .onFailure { error -> publishMessage = error.localizedMessage ?: "No se pudo publicar. Revisa los datos y tu conexión." }
-                        publishingInProgress = false
+                        try {
+                            val repository = EstadiaRepository.create(context)
+                            val id = repository.publishListing(title, location, type, price, cleaningFee, securityDeposit, guests, beds, description, photoUri)
+                            publishMessage = "Publicación enviada a Alozena (ID $id). Es una declaración del anfitrión; Alozena no verificó físicamente el alojamiento."
+                            try {
+                                hostListings = repository.searchMyListings()
+                            } catch (error: CancellationException) {
+                                throw error
+                            } catch (error: Exception) {
+                                publishMessage = "Publicación enviada a Alozena, pero no se pudo actualizar la lista. Vuelve a abrir Publicar para reintentar."
+                            }
+                            try {
+                                remoteStays = repository.searchStays(query, category)
+                            } catch (error: CancellationException) {
+                                throw error
+                            } catch (error: Exception) {
+                                backendMessage = "La publicación se guardó, pero no se pudo actualizar el catálogo."
+                            }
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (error: Exception) {
+                            publishMessage = error.localizedMessage ?: "No se pudo publicar. Revisa los datos y tu conexión."
+                        } finally {
+                            publishingInProgress = false
+                        }
                     }
                 },
                 onSignIn = ::startGoogleSignIn
@@ -336,7 +377,6 @@ internal fun AlozenaApp() {
                 onSignIn = ::startGoogleSignIn,
                 onSignOut = {
                     firebaseAuth?.signOut()
-                    favorites = emptySet()
                     remoteFavoriteIds = emptySet()
                     userEmail = null
                     accountMessageKind = AccountMessageKind.Neutral
@@ -457,13 +497,31 @@ internal fun AlozenaApp() {
         onClose = { selectedStay = null },
         onRequestBooking = { checkIn, checkOut, guestCount ->
             scope.launch {
+                if (!bookingSubmissionIds.add(stay.firestoreId)) return@launch
+                bookingInProgressIds.add(stay.firestoreId)
+                bookingMessageStayId = stay.firestoreId
                 bookingMessage = "Enviando solicitud…"
-                runCatching { EstadiaRepository.create(context).createBooking(stay.firestoreId, checkIn, checkOut, guestCount) }
-                    .onSuccess { bookingMessage = "Solicitud enviada al anfitrión desde Alozena." }
-                    .onFailure { error -> bookingMessage = error.localizedMessage ?: "No se pudo enviar la solicitud." }
+                try {
+                    EstadiaRepository.create(context).createBooking(stay.firestoreId, checkIn, checkOut, guestCount)
+                    if (selectedStay?.firestoreId == stay.firestoreId) {
+                        bookingMessageStayId = stay.firestoreId
+                        bookingMessage = "Solicitud enviada al anfitrión desde Alozena."
+                    }
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    if (selectedStay?.firestoreId == stay.firestoreId) {
+                        bookingMessageStayId = stay.firestoreId
+                        bookingMessage = error.localizedMessage ?: "No se pudo enviar la solicitud."
+                    }
+                } finally {
+                    bookingSubmissionIds.remove(stay.firestoreId)
+                    bookingInProgressIds.remove(stay.firestoreId)
+                }
             }
         },
-        bookingMessage = bookingMessage,
+        bookingMessage = bookingMessage.takeIf { bookingMessageStayId == stay.firestoreId },
+        isBookingInProgress = stay.firestoreId in bookingInProgressIds,
         onSignIn = ::startGoogleSignIn
     ) }
     if (showBookingRequests) {

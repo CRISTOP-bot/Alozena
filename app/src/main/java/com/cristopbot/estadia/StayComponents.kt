@@ -70,6 +70,7 @@ internal fun StayDetails(
     onClose: () -> Unit,
     onRequestBooking: (String, String, Int) -> Unit,
     bookingMessage: String?,
+    isBookingInProgress: Boolean,
     onSignIn: () -> Unit
 ) {
     var guests by remember(stay.firestoreId) { mutableIntStateOf(1) }
@@ -129,8 +130,9 @@ internal fun StayDetails(
                     bookingMessage?.let { Text(it, color = if (it.startsWith("Solicitud enviada")) Color(0xFF237A57) else Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp)) }
                     Spacer(Modifier.height(12.dp))
                     if (isSignedIn) {
-                        Button(onClick = { onRequestBooking(checkIn, checkOut, guests) }, enabled = checkIn.isNotBlank() && checkOut.isNotBlank(), modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = Coral)) {
-                            Text("Solicitar estancia")
+                        Button(onClick = { onRequestBooking(checkIn, checkOut, guests) }, enabled = !isBookingInProgress && checkIn.isNotBlank() && checkOut.isNotBlank(), modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = Coral)) {
+                            if (isBookingInProgress) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                            else Text("Solicitar estancia")
                         }
                     } else {
                         Button(onClick = onSignIn, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(14.dp)) { Text("Inicia sesión para solicitar") }

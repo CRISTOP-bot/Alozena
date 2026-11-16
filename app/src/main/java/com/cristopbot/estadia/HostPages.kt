@@ -89,6 +89,22 @@ internal fun HostListingPage(
     ) { selected -> photoUri = selected }
     var hostAttested by remember { mutableStateOf(false) }
     var publishStep by remember { mutableIntStateOf(0) }
+    LaunchedEffect(message) {
+        if (message?.startsWith("Publicación enviada") == true) {
+            title = ""
+            location = ""
+            category = "Casa"
+            price = ""
+            cleaningFee = "0"
+            securityDeposit = "0"
+            guests = "2"
+            beds = "1"
+            description = ""
+            photoUri = null
+            hostAttested = false
+            publishStep = 0
+        }
+    }
     Column(modifier.background(Color(0xFFF6F6F5)).verticalScroll(rememberScrollState()).padding(18.dp)) {
         Text("Publicar anuncio", fontSize = 23.sp, fontWeight = FontWeight.Bold, color = Ink)
         Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), horizontalArrangement = Arrangement.SpaceBetween) {

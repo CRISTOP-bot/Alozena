@@ -6,6 +6,7 @@ import com.cristopbot.estadia.Stay
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
 import java.text.Normalizer
@@ -59,7 +60,8 @@ class EstadiaRepository private constructor(
                     firestoreId = doc.id,
                     hostUid = uid,
                     reviewCount = 0,
-                    ownerName = doc.getString("hostDisplayName") ?: "Anfitrión Alozena"
+                    ownerName = doc.getString("hostDisplayName") ?: "Anfitrión Alozena",
+                    createdAtMillis = doc.getTimestamp("createdAt")?.toDate()?.time ?: 0L
                 )
             }.getOrNull()
         }
@@ -71,7 +73,7 @@ class EstadiaRepository private constructor(
             .whereEqualTo("published", true)
             .whereEqualTo("source", "host_submitted")
         if (category != "Todo") query = query.whereEqualTo("category", category)
-        val docs = query.limit(100).get().await().documents
+        val docs = query.orderBy("createdAt", Query.Direction.DESCENDING).limit(100).get().await().documents
         return docs.filter { doc ->
             tokens.isEmpty() || tokens.all { token -> (doc.get("searchTokens") as? List<*>)?.contains(token) == true }
         }.take(50).mapNotNull { doc ->
@@ -93,7 +95,8 @@ class EstadiaRepository private constructor(
                     firestoreId = doc.id,
                     hostUid = doc.getString("hostUid") ?: "",
                     reviewCount = 0,
-                    ownerName = doc.getString("hostDisplayName") ?: "Anfitrión Alozena"
+                    ownerName = doc.getString("hostDisplayName") ?: "Anfitrión Alozena",
+                    createdAtMillis = doc.getTimestamp("createdAt")?.toDate()?.time ?: 0L
                 )
             }.getOrNull()
         }
