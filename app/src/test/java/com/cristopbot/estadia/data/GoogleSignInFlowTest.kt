@@ -8,12 +8,16 @@ import org.junit.Test
 class GoogleSignInFlowTest {
     @Test fun firebaseFailuresAreMappedToPlainSpanishWithoutTechnicalDetails() {
         assertEquals(
-            "El acceso con Google no está disponible por ahora. Puedes explorar Alozena como invitado e intentar más tarde.",
+            "El acceso con Google no está habilitado para Alozena. Revisa la configuración de Firebase o continúa como invitado.",
             firebaseSignInMessage("ERROR_OPERATION_NOT_ALLOWED")
         )
         assertEquals(
             "No pudimos conectarnos. Revisa tu conexión e inténtalo de nuevo.",
             firebaseSignInMessage("ERROR_NETWORK_REQUEST_FAILED")
+        )
+        assertEquals(
+            "No pudimos validar la cuenta de Google. Revisa el proveedor y el certificado SHA registrado en Firebase; también puedes continuar como invitado.",
+            firebaseSignInMessage("ERROR_INVALID_CREDENTIAL")
         )
         assertEquals(
             "No se pudo completar el acceso con Google. Inténtalo de nuevo o sigue explorando como invitado.",

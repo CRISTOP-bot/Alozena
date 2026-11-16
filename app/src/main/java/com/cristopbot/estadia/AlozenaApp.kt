@@ -143,10 +143,10 @@ internal fun AlozenaApp() {
                     accountMessage = "Google no está disponible en esta instalación. Puedes seguir explorando Alozena como invitado."
                     return@launch
                 }
-                val clientIdResource = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
-                if (clientIdResource == 0) {
+                val serverClientId = context.googleWebClientId()
+                if (serverClientId == null) {
                     accountMessageKind = AccountMessageKind.Error
-                    accountMessage = "No pudimos preparar el acceso con Google. Puedes explorar Alozena como invitado e intentar más tarde."
+                    accountMessage = "Falta configurar el cliente OAuth web de Firebase. Actualiza la configuración de la app e inténtalo de nuevo."
                     return@launch
                 }
                 val hostActivity = activity
@@ -155,7 +155,7 @@ internal fun AlozenaApp() {
                     accountMessage = "No pudimos abrir el selector de cuentas. Inténtalo de nuevo."
                     return@launch
                 }
-                when (val result = GoogleSignInFlow().requestIdToken(hostActivity, context.getString(clientIdResource))) {
+                when (val result = GoogleSignInFlow().requestIdToken(hostActivity, serverClientId)) {
                     is GoogleSignInResult.Token -> {
                         EstadiaRepository.create(context).signInWithGoogleIdToken(result.idToken)
                         userEmail = firebaseAuth?.currentUser?.email
@@ -171,19 +171,19 @@ internal fun AlozenaApp() {
                     GoogleSignInResult.Cancelled -> accountMessage = null
                     GoogleSignInResult.Failed -> {
                         accountMessageKind = AccountMessageKind.Error
-                        accountMessage = "No pudimos completar el acceso con Google. Inténtalo de nuevo o sigue explorando como invitado."
+                        accountMessage = "No pudimos validar el acceso con Google. Revisa la configuración de Firebase o continúa como invitado."
                     }
                 }
             } catch (error: FirebaseNetworkException) {
-                Log.w("AlozenaAuth", "Network issue during Firebase sign-in", error)
+                Log.w("AlozenaAuth", "Firebase sign-in failed because of a network error")
                 accountMessageKind = AccountMessageKind.Error
                 accountMessage = firebaseSignInMessage("ERROR_NETWORK_REQUEST_FAILED")
             } catch (error: FirebaseAuthException) {
-                Log.w("AlozenaAuth", "Firebase sign-in rejected", error)
+                Log.w("AlozenaAuth", "Firebase sign-in rejected (${error.errorCode})")
                 accountMessageKind = AccountMessageKind.Error
                 accountMessage = firebaseSignInMessage(error.errorCode)
             } catch (error: Exception) {
-                Log.e("AlozenaAuth", "Google sign-in could not be completed", error)
+                Log.e("AlozenaAuth", "Google sign-in failed (${error.javaClass.simpleName})")
                 accountMessageKind = AccountMessageKind.Error
                 accountMessage = "No se pudo completar el acceso con Google. Inténtalo de nuevo o sigue explorando como invitado."
             } finally {

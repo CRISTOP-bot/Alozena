@@ -17,6 +17,7 @@ import com.google.firebase.FirebaseNetworkException
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -48,6 +49,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import com.cristopbot.estadia.data.BackendState
 import com.cristopbot.estadia.data.EstadiaRepository
 import com.cristopbot.estadia.data.GoogleSignInFlow
@@ -76,62 +78,93 @@ internal fun FirstRunLoginPage(
     onGoogleSignIn: () -> Unit,
     onContinueAsGuest: () -> Unit
 ) {
-    androidx.compose.animation.AnimatedVisibility(
-        visible = true,
-        enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically()
-    ) {
-    Box(Modifier.fillMaxSize().background(Color.White), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize().background(Color(0xFFF5F7F8)), contentAlignment = Alignment.Center) {
         Column(
-            Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 24.dp),
+            Modifier.fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(Modifier.background(Color(0xFFEAF3F8), CircleShape).padding(24.dp), contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Home, contentDescription = null, tint = Coral, modifier = Modifier.size(42.dp))
-            }
-            Spacer(Modifier.height(16.dp))
-            Text("Alozena", fontSize = 31.sp, fontWeight = FontWeight.Bold, color = Ink)
-            Spacer(Modifier.height(5.dp))
-            Text("Tu próxima estancia, más cerca", color = Muted, fontSize = 15.sp, lineHeight = 22.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-            Spacer(Modifier.height(28.dp))
-            Button(
-                onClick = onGoogleSignIn,
-                enabled = backendReady && !isLoading && termsAccepted,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(14.dp)
+            Image(
+                painter = painterResource(R.drawable.ic_alozena),
+                contentDescription = "Logo de Alozena",
+                modifier = Modifier.size(68.dp)
+            )
+            Spacer(Modifier.height(14.dp))
+            Text("Qué bueno tenerte aquí", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Ink)
+            Text(
+                "Tu próxima estancia, más cerca.",
+                color = Muted,
+                fontSize = 14.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.padding(top = 5.dp, bottom = 22.dp)
+            )
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                color = Color.White,
+                border = androidx.compose.foundation.BorderStroke(1.dp, BorderSoft),
+                shadowElevation = 2.dp
             ) {
-                if (isLoading) CircularProgressIndicator(modifier = Modifier.size(21.dp), color = Color.White, strokeWidth = 2.dp)
-                else Text("Continuar con Google", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            }
-            if (!backendReady) {
-                Spacer(Modifier.height(8.dp))
-                Text("Google no está disponible en esta instalación; puedes explorar Alozena como invitado.", color = Muted, fontSize = 12.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-            }
-            errorMessage?.let { message ->
-                val color = when (messageKind) {
-                    AccountMessageKind.Success -> Color(0xFF237A57)
-                    AccountMessageKind.Neutral -> Muted
-                    AccountMessageKind.Error -> Color(0xFF9D3933)
-                }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(message, color = color, fontSize = 13.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Column(Modifier.fillMaxWidth().padding(20.dp)) {
+                    Text("Inicia sesión o continúa como invitado", color = Ink, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    Text("Guarda alojamientos y gestiona tus publicaciones en un solo lugar.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 5.dp, bottom = 16.dp))
+                    Button(
+                        onClick = onGoogleSignIn,
+                        enabled = backendReady && !isLoading && termsAccepted,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Coral)
+                    ) {
+                        if (isLoading) CircularProgressIndicator(modifier = Modifier.size(21.dp), color = Color.White, strokeWidth = 2.dp)
+                        else Text("Continuar con Google", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    if (!backendReady) {
+                        Text(
+                            "El acceso con Google no está configurado en esta instalación. Puedes explorar sin cuenta.",
+                            color = Muted,
+                            fontSize = 12.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
+                        )
+                    }
+                    errorMessage?.let { message ->
+                        val color = when (messageKind) {
+                            AccountMessageKind.Success -> Color(0xFF237A57)
+                            AccountMessageKind.Neutral -> Muted
+                            AccountMessageKind.Error -> Color(0xFF9D3933)
+                        }
+                        Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(message, Modifier.weight(1f), color = color, fontSize = 12.sp, lineHeight = 17.sp)
+                            androidx.compose.material3.IconButton(onClick = onDismissMessage) { Icon(Icons.Default.Close, "Descartar mensaje", tint = color) }
+                        }
                         if (messageKind == AccountMessageKind.Error && backendReady) {
-                            TextButton(onClick = onGoogleSignIn, enabled = !isLoading) { Text("Intentar de nuevo", color = color) }
+                            TextButton(onClick = onGoogleSignIn, enabled = !isLoading) { Text("Intentar de nuevo", color = Coral) }
                         }
                     }
-                    androidx.compose.material3.IconButton(onClick = onDismissMessage) { Icon(Icons.Default.Close, contentDescription = "Descartar mensaje", tint = color) }
+                    HorizontalDivider(Modifier.padding(vertical = 14.dp), color = BorderSoft)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = termsAccepted, onCheckedChange = { if (it) onTermsAccepted() })
+                        Text(
+                            "Acepto los términos y la privacidad",
+                            color = Muted,
+                            fontSize = 12.sp,
+                            modifier = Modifier.clickable(onClick = onTermsClick)
+                        )
+                    }
+                    TextButton(onClick = onTermsClick, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                        Text("Leer términos completos", color = Coral)
+                    }
+                    TextButton(
+                        onClick = onContinueAsGuest,
+                        enabled = !isLoading && termsAccepted,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Explorar como invitado", color = Ink, fontSize = 14.sp)
+                    }
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = termsAccepted, onCheckedChange = { if (it) onTermsAccepted() })
-                Text("Acepto los términos y la información de privacidad", color = Muted, fontSize = 12.sp, modifier = Modifier.clickable(onClick = onTermsClick))
-            }
-            TextButton(onClick = onTermsClick) { Text("Leer términos y privacidad", color = Coral) }
-            TextButton(onClick = onContinueAsGuest, enabled = !isLoading && termsAccepted) {
-                Text("Explorar como invitado", color = Ink, fontSize = 14.sp)
-            }
         }
-    }
     }
 }
 
@@ -148,9 +181,7 @@ internal fun AlozenaHomeHeader(
 ) {
     Column(Modifier.fillMaxWidth().background(Color(0xFFF7F9FB)).padding(bottom = 10.dp)) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.background(Color(0xFFEAF3F8), RoundedCornerShape(10.dp)).padding(6.dp)) {
-                Icon(Icons.Default.Home, contentDescription = null, tint = Coral, modifier = Modifier.size(18.dp))
-            }
+            Image(painterResource(R.drawable.ic_alozena), contentDescription = "Logo de Alozena", modifier = Modifier.size(34.dp))
             Text("Alozena", Modifier.weight(1f).padding(start = 8.dp), fontWeight = FontWeight.Bold, fontSize = 21.sp, color = Ink)
             IconButton(onClick = onOpenTerms) { Icon(Icons.Default.Settings, "Configuración", tint = Ink) }
         }

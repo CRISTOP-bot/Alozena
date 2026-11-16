@@ -68,9 +68,18 @@ jobs:
           if len(clients) != 1 or clients[0].get('client_info', {}).get('android_client_info', {}).get('package_name') != 'com.cristopbot.estadia':
               raise SystemExit('Firebase config does not register Android package com.cristopbot.estadia')
           oauth = clients[0].get('oauth_client', [])
-          print(f'Firebase config verified for {project}; OAuth clients configured: {len(oauth)}')
-          if not oauth:
-              print('::warning::No OAuth clients; Google sign-in requires Firebase Google provider and OAuth configuration, then a refreshed google-services.json.')
+          has_web_client = any(client.get('client_type') == 3 and client.get('client_id') for client in oauth)
+          has_android_client = any(
+              client.get('client_type') == 1
+              and client.get('android_info', {}).get('package_name') == 'com.cristopbot.estadia'
+              and client.get('android_info', {}).get('certificate_hash')
+              for client in oauth
+          )
+          if not has_web_client:
+              raise SystemExit('Firebase config is missing the Google Web OAuth client required by Credential Manager.')
+          if not has_android_client:
+              raise SystemExit('Firebase config is missing an Android OAuth client for com.cristopbot.estadia.')
+          print(f'Firebase config verified for {project}; Web and Android OAuth clients present (IDs redacted).')
           PY
       - name: Use Firebase config on non-release builds when available
         if: github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/v')

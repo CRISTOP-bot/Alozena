@@ -1,6 +1,7 @@
 package com.cristopbot.estadia.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,10 +44,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val Blue = Color(0xFF10213D)
-private val Ink = Color(0xFF101827)
-private val Muted = Color(0xFF707887)
-private val Page = Color(0xFFF6F6F5)
+private val Blue = Color(0xFF2F5B73)
+private val Ink = Color(0xFF172233)
+private val Muted = Color(0xFF5F6E81)
+private val Page = Color(0xFFF7F9FB)
+private val BorderSoft = Color(0xFFE3E8EE)
 
 enum class AccountMessageKind { Success, Neutral, Error }
 
@@ -82,7 +84,8 @@ fun AccountPage(
             Modifier.fillMaxWidth().padding(top = 5.dp),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            border = BorderStroke(1.dp, BorderSoft)
         ) {
             Column(Modifier.fillMaxWidth().padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -114,7 +117,8 @@ fun AccountPage(
             Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            border = BorderStroke(1.dp, BorderSoft)
         ) {
             Column(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
                 ProfileAction(Icons.Default.BookmarkBorder, "Mis publicaciones", "Administra tus alojamientos", onOpenTrips)

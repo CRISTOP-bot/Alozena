@@ -8,7 +8,7 @@ App Android: `com.cristopbot.estadia`
 1. Confirma que estás en el proyecto `estadia-37fbf`.
 2. En Authentication → Proveedores de acceso, habilita Google y completa configuración OAuth requerida.
 3. En la configuración de la app Android registra SHA-1 y SHA-256 del certificado debug. El workflow imprime esas huellas mediante `gradle signingReport`.
-4. El `google-services.json` recibido registra el package correcto, pero `oauth_client` está vacío. Después de configurar Google/OAuth, descarga un JSON actualizado y reemplaza el secreto de repo `FIREBASE_ANDROID_CONFIG`.
+4. CI recibe la configuración desde el secreto `FIREBASE_ANDROID_CONFIG` y valida que tenga clientes OAuth Android y web. Si cambias el proveedor, el package o las huellas SHA, descarga un JSON actualizado y reemplaza ese secreto.
 5. Crea Cloud Firestore si aún no existe y selecciona cuidadosamente la región: no puede cambiarse posteriormente.
 
 ## Desplegar reglas e índices

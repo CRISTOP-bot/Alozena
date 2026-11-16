@@ -2,6 +2,8 @@
 
 Alozena es una app Android nativa en Kotlin y Jetpack Compose para publicar alojamientos y solicitar estancias dentro de la propia plataforma.
 
+[Documentación del proyecto](./docs/README.md) · [Metas pendientes](./todo.md)
+
 ## Estado real
 
 - El catálogo local incluye alojamientos ficticios de demostración, claramente marcados y no reservables, para probar la interfaz sin depender de Firebase. No son ofertas reales.
@@ -23,7 +25,7 @@ No se importan catálogos de terceros, no se raspan páginas, no se usan anuncio
 
 ## CI
 
-GitHub Actions ejecuta las pruebas de reglas Firestore, tests unitarios, `assembleDebug` y `signingReport`. Los builds de `main` publican el APK generado por ese commit. El CI prueba reglas en emuladores, pero no despliega reglas ni habilita Firebase Storage en la consola remota. Antes del primer uso, verifica que Storage esté habilitado en el proyecto y despliega `firestore.rules`, `firestore.indexes.json` y `storage.rules`. En este cambio no se inspeccionó ni se modificó la configuración Firebase remota.
+GitHub Actions ejecuta las pruebas de reglas Firestore, tests unitarios, `assembleDebug` y `signingReport`. Los builds de `main` publican el APK generado por ese commit. El CI comprueba que la configuración Firebase del secreto contiene clientes OAuth Android y web, pero no despliega reglas ni habilita proveedores o Storage en la consola remota. Antes del primer uso, revisa [la guía de acceso](./docs/login.md), habilita Google y Storage y despliega `firestore.rules`, `firestore.indexes.json` y `storage.rules`.
 
 Creado por un niño de 12 años BTW
 
