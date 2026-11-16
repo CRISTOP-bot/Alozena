@@ -22,4 +22,12 @@ class StayFiltersTest {
         assertEquals(listOf("Casa del Lago"), StayFilters.filter(listings, "", "Casa", true, setOf(1)).map { it.title })
         assertEquals(emptyList<Stay>(), StayFilters.filter(listings, "", "Todo", true, emptySet()))
     }
+
+    @Test fun sortsResultsByPriceWhenRequested() {
+        val sorted = StayFilters.filter(listings, "", "Todo", false, emptySet(), StaySortOption.PRICE_ASC).map { it.title }
+        assertEquals(listOf("Loft Centro", "Casa del Lago"), sorted)
+
+        val descending = StayFilters.filter(listings, "", "Todo", false, emptySet(), StaySortOption.PRICE_DESC).map { it.title }
+        assertEquals(listOf("Casa del Lago", "Loft Centro"), descending)
+    }
 }

@@ -28,14 +28,37 @@ object StayCatalog {
     val stays: List<Stay> = emptyList()
 }
 
+enum class StaySortOption {
+    RELEVANCE,
+    PRICE_ASC,
+    PRICE_DESC,
+    NEWEST
+}
+
 object StayFilters {
     fun normalize(value: String): String = Normalizer.normalize(value.trim().lowercase(Locale.ROOT), Normalizer.Form.NFD)
         .replace(Regex("\\p{Mn}+"), "")
 
-    fun filter(stays: List<Stay>, query: String, category: String, favoritesOnly: Boolean, favorites: Set<Int>): List<Stay> = stays.filter { stay ->
-        val normalizedQuery = normalize(query)
-        val matchesQuery = normalizedQuery.isBlank() || normalize(stay.location).contains(normalizedQuery) || normalize(stay.title).contains(normalizedQuery)
-        val matchesCategory = category == "Todo" || stay.category == category
-        matchesQuery && matchesCategory && (!favoritesOnly || stay.id in favorites)
+    fun filter(
+        stays: List<Stay>,
+        query: String,
+        category: String,
+        favoritesOnly: Boolean,
+        favorites: Set<Int>,
+        sortOption: StaySortOption = StaySortOption.RELEVANCE
+    ): List<Stay> {
+        val filtered = stays.filter { stay ->
+            val normalizedQuery = normalize(query)
+            val matchesQuery = normalizedQuery.isBlank() || normalize(stay.location).contains(normalizedQuery) || normalize(stay.title).contains(normalizedQuery)
+            val matchesCategory = category == "Todo" || stay.category == category
+            matchesQuery && matchesCategory && (!favoritesOnly || stay.id in favorites)
+        }
+
+        return when (sortOption) {
+            StaySortOption.RELEVANCE -> filtered
+            StaySortOption.PRICE_ASC -> filtered.sortedBy { it.price }
+            StaySortOption.PRICE_DESC -> filtered.sortedByDescending { it.price }
+            StaySortOption.NEWEST -> filtered.sortedByDescending { it.id }
+        }
     }
 }

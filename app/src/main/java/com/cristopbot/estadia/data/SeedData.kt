@@ -1,6 +1,123 @@
 package com.cristopbot.estadia.data
 
-/** No fictional lodging is preloaded into the live catalog. */
+import com.cristopbot.estadia.Stay
+
+/** Demo catalog used when Firebase is not configured yet. This is intentionally small and realistic. */
 object SeedData {
-    val stays: List<Map<String, Any>> = emptyList()
+    val stays: List<Stay> = listOf(
+        Stay(
+            id = 1001,
+            title = "Casa con jardín en Valle de Bravo",
+            location = "Valle de Bravo",
+            category = "Casa",
+            price = 2800,
+            cleaningFee = 450,
+            securityDeposit = 4000,
+            rating = "Sin reseñas",
+            image = "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80",
+            badge = "Top host",
+            description = "Casa tranquila con jardín, terraza y vista a la montaña. Ideal para descansar y trabajar desde un entorno sereno.",
+            beds = 2,
+            guests = 4,
+            firestoreId = "seed-valle-bravo",
+            hostUid = "seed-valle-host",
+            reviewCount = 0,
+            ownerName = "Anita G."
+        ),
+        Stay(
+            id = 1002,
+            title = "Loft moderno en Roma Norte",
+            location = "Ciudad de México",
+            category = "Departamento",
+            price = 3400,
+            cleaningFee = 500,
+            securityDeposit = 5000,
+            rating = "Sin reseñas",
+            image = "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=80",
+            badge = "Cerca del centro",
+            description = "Loft con cocina equipada, dormitorio amplio y excelente acceso a restaurantes, cafés y transporte.",
+            beds = 1,
+            guests = 2,
+            firestoreId = "seed-cdmx-loft",
+            hostUid = "seed-cdmx-host",
+            reviewCount = 0,
+            ownerName = "Gabriel T."
+        ),
+        Stay(
+            id = 1003,
+            title = "Cabaña de pino en la sierra",
+            location = "Puebla",
+            category = "Cabaña",
+            price = 2200,
+            cleaningFee = 350,
+            securityDeposit = 3000,
+            rating = "Sin reseñas",
+            image = "https://images.unsplash.com/photo-1445019980597-93fa8acb246c?auto=format&fit=crop&w=1200&q=80",
+            badge = "Naturaleza",
+            description = "Cabaña con chimenea, vista al bosque y patio exterior para desayunos y lectura tranquila.",
+            beds = 2,
+            guests = 3,
+            firestoreId = "seed-puebla-cabana",
+            hostUid = "seed-puebla-host",
+            reviewCount = 0,
+            ownerName = "Luz M."
+        ),
+        Stay(
+            id = 1004,
+            title = "Habitación con balcón y luz natural",
+            location = "Oaxaca",
+            category = "Habitación",
+            price = 1200,
+            cleaningFee = 220,
+            securityDeposit = 2000,
+            rating = "Sin reseñas",
+            image = "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=80",
+            badge = "Muy solicitado",
+            description = "Habitación privada con balcón, ventilación natural y acceso a cocina compartida en una zona tranquila.",
+            beds = 1,
+            guests = 2,
+            firestoreId = "seed-oaxaca-room",
+            hostUid = "seed-oaxaca-host",
+            reviewCount = 0,
+            ownerName = "Sandra P."
+        ),
+        Stay(
+            id = 1005,
+            title = "Departamento frente al parque",
+            location = "Mérida",
+            category = "Departamento",
+            price = 2600,
+            cleaningFee = 420,
+            securityDeposit = 4200,
+            rating = "Sin reseñas",
+            image = "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=1200&q=80",
+            badge = "Familias",
+            description = "Hermoso departamento con dos dormitorios, sala luminosa y fácil acceso a parques y centros culturales.",
+            beds = 2,
+            guests = 4,
+            firestoreId = "seed-merida-depto",
+            hostUid = "seed-merida-host",
+            reviewCount = 0,
+            ownerName = "Marco A."
+        ),
+        Stay(
+            id = 1006,
+            title = "Casa rústica cerca de la playa",
+            location = "Puerto Escondido",
+            category = "Casa",
+            price = 3900,
+            cleaningFee = 600,
+            securityDeposit = 6000,
+            rating = "Sin reseñas",
+            image = "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80",
+            badge = "Playa",
+            description = "Casa con terraza, comedor exterior y acceso rápido a la zona costera más tranquila de la región.",
+            beds = 3,
+            guests = 5,
+            firestoreId = "seed-puerto-escondido",
+            hostUid = "seed-puerto-host",
+            reviewCount = 0,
+            ownerName = "Renata C."
+        )
+    )
 }

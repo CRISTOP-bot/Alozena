@@ -4,8 +4,8 @@ Alozena es una app Android nativa en Kotlin y Jetpack Compose para publicar aloj
 
 ## Estado real
 
-- El catálogo inicial está vacío: no hay anuncios precargados.
-- Solo aparecen publicaciones guardadas en Firestore por un usuario anfitrión autenticado.
+- El catálogo local incluye un conjunto de publicaciones demo reales para que la app tenga una primera experiencia útil sin depender del despliegue de Firebase.
+- En producción, solo aparecen publicaciones guardadas en Firestore por un usuario anfitrión autenticado.
 - La publicación pide título, ubicación, tipo, precio por noche, cargo de limpieza, depósito de seguridad, capacidad, camas, descripción y una foto elegida del dispositivo; la foto se sube a Firebase Storage con ruta por UID. Firestore guarda la publicación ligada al UID y marcada `source=host_submitted`. El anfitrión declara que la información es cierta; Alozena no verifica físicamente la propiedad.
 - Las solicitudes de estancia se guardan en Alozena con fechas, huéspedes, título/precio al momento de pedir y estado pendiente. El anfitrión puede confirmar/rechazar y el huésped cancelar dentro de Alozena; no se procesa ningún pago.
 - Alozena aún no tiene flujo de reseñas/calificaciones, así que las calificaciones están desactivadas y no aparecen estrellas.

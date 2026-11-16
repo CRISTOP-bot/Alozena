@@ -39,6 +39,7 @@ import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.graphics.Color
@@ -58,16 +59,29 @@ import coil.compose.AsyncImage
 import java.text.NumberFormat
 import java.util.Locale
 
-private val Coral = Color(0xFF10213D)
-private val Ink = Color(0xFF101827)
-private val Muted = Color(0xFF707887)
-private val Soft = Color(0xFFF4F5F7)
-private val BlueForUi = Color(0xFF10213D)
+private val Coral = Color(0xFF2F5B73)
+private val Ink = Color(0xFF172233)
+private val Muted = Color(0xFF5F6E81)
+private val Soft = Color(0xFFF4F6F8)
+private val BlueForUi = Color(0xFF2F5B73)
+private val SubtleCard = Color(0xFFF7F9FB)
+private val BorderSoft = Color(0xFFE3E8EE)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme(colorScheme = lightColorScheme(primary = Coral, onPrimary = Color.White, background = Color(0xFFF6F6F5), surface = Color.White)) { AlozenaApp() } }
+        setContent {
+            MaterialTheme(
+                colorScheme = lightColorScheme(
+                    primary = Coral,
+                    onPrimary = Color.White,
+                    background = Color(0xFFF7F8FA),
+                    surface = Color.White,
+                    onSurface = Ink,
+                    secondary = Color(0xFF6F8BA4)
+                )
+            ) { AlozenaApp() }
+        }
     }
 }
 
@@ -84,6 +98,7 @@ private fun AlozenaApp() {
     var selectedStay by remember { mutableStateOf<Stay?>(null) }
     var showBookingRequests by remember { mutableStateOf(false) }
     var showFilters by remember { mutableStateOf(false) }
+    var sortBy by remember { mutableStateOf(StaySortOption.RELEVANCE) }
     val categories = listOf("Todo", "Casa", "Departamento", "Cabaña", "Habitación", "Otro")
     val categoryFilters = categories
     val activity = context as? Activity
@@ -135,7 +150,7 @@ private fun AlozenaApp() {
         (remoteStays ?: emptyList()).filter { it.firestoreId in remoteFavoriteIds }.map { it.id }.toSet()
     } else favorites
     val liveListings = remoteStays ?: emptyList()
-    val results = StayFilters.filter(liveListings, query, category, isFavoritesPage, effectiveFavorites)
+    val results = StayFilters.filter(liveListings, query, category, isFavoritesPage, effectiveFavorites, sortBy)
         .filter { it.price <= maxNightlyPrice.toInt() }
 
     LaunchedEffect(backendState, userEmail, selectedTab) {
@@ -151,8 +166,12 @@ private fun AlozenaApp() {
                 .onSuccess { remoteStays = it; backendMessage = null }
                 .onFailure { remoteStays = emptyList(); backendMessage = "No se pudieron cargar las publicaciones. Revisa tu conexión e inténtalo de nuevo." }
         } else {
-            remoteStays = emptyList()
-            backendMessage = "Las publicaciones aparecerán cuando haya anuncios enviados en Alozena."
+            remoteStays = SeedData.stays.filter { stay ->
+                val matchesQuery = query.isBlank() || stay.location.contains(query, ignoreCase = true) || stay.title.contains(query, ignoreCase = true)
+                val matchesCategory = category == "Todo" || stay.category == category
+                matchesQuery && matchesCategory
+            }
+            backendMessage = "Catálogo demo local: conectando con Firebase para publicar más alojamientos reales."
             favoritesLoaded = true
         }
     }
@@ -318,8 +337,14 @@ private fun AlozenaApp() {
     Scaffold(
         containerColor = Color(0xFFF5F7FB),
         bottomBar = {
-            NavigationBar(containerColor = Color.White, tonalElevation = 6.dp) {
-                val navColors = NavigationBarItemDefaults.colors(selectedIconColor = Color.White, selectedTextColor = Coral, indicatorColor = Coral, unselectedIconColor = Muted, unselectedTextColor = Muted)
+            NavigationBar(containerColor = Color.White, tonalElevation = 2.dp) {
+                    val navColors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = Coral,
+                        selectedTextColor = Coral,
+                        indicatorColor = Color(0xFFEAF2F7),
+                        unselectedIconColor = Muted,
+                        unselectedTextColor = Muted
+                    )
                 NavigationBarItem(selected = selectedTab == 0, onClick = { selectedTab = 0 }, icon = { Icon(Icons.Default.Home, null) }, label = { Text("Inicio", fontSize = 10.sp) }, colors = navColors)
                 NavigationBarItem(selected = selectedTab == 4, onClick = { selectedTab = 4 }, icon = { Icon(Icons.Default.Search, null) }, label = { Text("Buscar", fontSize = 10.sp) }, colors = navColors)
                 NavigationBarItem(selected = selectedTab == 2, onClick = { selectedTab = 2 }, icon = { Icon(Icons.Default.Add, null) }, label = { Text("Publicar", fontSize = 10.sp) }, colors = navColors)
@@ -413,11 +438,35 @@ private fun AlozenaApp() {
                     }
                     backendMessage?.let { message -> item { Text(message, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) } }
                     item {
-                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { showFilters = true }, shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 13.dp, vertical = 7.dp)) {
-                                Icon(Icons.Default.Tune, null, modifier = Modifier.size(16.dp)); Text(" Precio y tipo", fontSize = 12.sp)
+                        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp)) {
+                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { showFilters = true }, shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 13.dp, vertical = 7.dp)) {
+                                    Icon(Icons.Default.Tune, null, modifier = Modifier.size(16.dp)); Text(" Precio y tipo", fontSize = 12.sp)
+                                }
+                                OutlinedButton(onClick = { showFilters = true }, shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 13.dp, vertical = 7.dp)) { Text("Tipo · ${if (category == "Todo") "Todos" else category}", fontSize = 12.sp) }
                             }
-                            OutlinedButton(onClick = { showFilters = true }, shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 13.dp, vertical = 7.dp)) { Text("Tipo · ${if (category == "Todo") "Todos" else category}", fontSize = 12.sp) }
+                            Spacer(Modifier.height(10.dp))
+                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(
+                                    StaySortOption.RELEVANCE to "Relevancia",
+                                    StaySortOption.PRICE_ASC to "Precio ↓",
+                                    StaySortOption.PRICE_DESC to "Precio ↑",
+                                    StaySortOption.NEWEST to "Nuevos"
+                                ).forEach { (option, label) ->
+                                    FilterChip(
+                                        selected = sortBy == option,
+                                        onClick = { sortBy = option },
+                                        label = { Text(label, fontSize = 12.sp) },
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = Coral.copy(alpha = 0.12f),
+                                            containerColor = Color.White,
+                                            selectedLabelColor = Coral,
+                                            labelColor = Ink
+                                        )
+                                    )
+                                }
+                            }
                         }
                     }
                     item {
@@ -520,7 +569,7 @@ private fun FirstRunLoginPage(
             Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(Modifier.background(Color(0xFFEAF1FF), CircleShape).padding(24.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.background(Color(0xFFEAF3F8), CircleShape).padding(24.dp), contentAlignment = Alignment.Center) {
                 Icon(Icons.Default.Home, contentDescription = null, tint = Coral, modifier = Modifier.size(42.dp))
             }
             Spacer(Modifier.height(16.dp))
@@ -581,16 +630,18 @@ private fun AlozenaHomeHeader(
     onPublish: () -> Unit,
     destinations: List<String>
 ) {
-    Column(Modifier.fillMaxWidth().background(Color(0xFFF6F6F5)).padding(bottom = 10.dp)) {
+    Column(Modifier.fillMaxWidth().background(Color(0xFFF7F9FB)).padding(bottom = 10.dp)) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Home, contentDescription = null, tint = Coral, modifier = Modifier.size(25.dp))
+            Box(Modifier.background(Color(0xFFEAF3F8), RoundedCornerShape(10.dp)).padding(6.dp)) {
+                Icon(Icons.Default.Home, contentDescription = null, tint = Coral, modifier = Modifier.size(18.dp))
+            }
             Text("Alozena", Modifier.weight(1f).padding(start = 8.dp), fontWeight = FontWeight.Bold, fontSize = 21.sp, color = Ink)
             IconButton(onClick = onOpenTerms) { Icon(Icons.Default.Settings, "Configuración", tint = Ink) }
         }
-        Text("Encuentra tu\\nhogar ideal", Modifier.padding(start = 20.dp, top = 6.dp), fontSize = 29.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold, color = Ink)
+        Text("Encuentra tu\nhogar ideal", Modifier.padding(start = 20.dp, top = 6.dp), fontSize = 29.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold, color = Ink)
         Text("Renta, busca y vive mejor.", Modifier.padding(start = 20.dp, top = 6.dp, bottom = 14.dp), fontSize = 14.sp, color = Muted)
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(52.dp).clip(RoundedCornerShape(17.dp)).background(Color.White).padding(horizontal = 14.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(52.dp).clip(RoundedCornerShape(17.dp)).background(Color.White).border(1.dp, BorderSoft, RoundedCornerShape(17.dp)).padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(Icons.Default.Search, null, tint = Muted, modifier = Modifier.size(20.dp))
@@ -605,7 +656,15 @@ private fun AlozenaHomeHeader(
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
             listOf("Casa", "Departamento", "Habitación", "Cabaña", "Otro").forEach { item ->
-                Column(Modifier.width(78.dp).clip(RoundedCornerShape(15.dp)).background(if (selectedCategory == item) Color(0xFFE7EAF0) else Color.White).clickable { onCategory(item) }.padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    Modifier.width(78.dp)
+                        .clip(RoundedCornerShape(15.dp))
+                        .background(if (selectedCategory == item) Color(0xFFEAF3F8) else Color.White)
+                        .border(1.dp, if (selectedCategory == item) Color(0xFFD7E8F1) else BorderSoft, RoundedCornerShape(15.dp))
+                        .clickable { onCategory(item) }
+                        .padding(vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     Icon(categoryIcon(item), null, tint = Coral, modifier = Modifier.size(23.dp))
                     Text(item, Modifier.padding(top = 6.dp), color = Ink, fontSize = 10.sp, maxLines = 1)
                 }
@@ -685,7 +744,17 @@ private fun CategoryFilterDialog(
 
 @Composable
 private fun StayCard(stay: Stay, isFavorite: Boolean, onFavorite: () -> Unit, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Card(modifier.fillMaxWidth().animateContentSize().clickable(onClick = onClick), shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .animateContentSize()
+            .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x1A000000), spotColor = Color(0x1A000000))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, BorderSoft)
+    ) {
         Row(Modifier.fillMaxWidth().padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(122.dp, 112.dp)) {
                 AsyncImage(model = stay.image, contentDescription = "Foto del alojamiento: ${stay.title}", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(13.dp)))
