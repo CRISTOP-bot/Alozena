@@ -93,6 +93,13 @@ jobs:
           fi
       - name: Run Android unit tests
         run: gradle testDebugUnitTest --no-daemon
+      - name: Run Compose UI tests on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          script: gradle connectedDebugAndroidTest --no-daemon
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
       - name: Report Android signing fingerprints

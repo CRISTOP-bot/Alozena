@@ -19,6 +19,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -54,7 +55,8 @@ fun SettingsDialog(
                     Switch(
                         checked = realtimeUpdatesEnabled,
                         onCheckedChange = onRealtimeUpdatesChange,
-                        enabled = backendReady
+                        enabled = backendReady,
+                        modifier = Modifier.testTag("realtime-updates-toggle")
                     )
                 }
                 Text(screenSyncStatus, fontSize = 11.sp)
